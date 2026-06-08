@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: queue-service
+
+server:
+  port: 8082
+

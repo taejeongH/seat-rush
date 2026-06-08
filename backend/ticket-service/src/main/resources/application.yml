@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: ticket-service
+
+server:
+  port: 8081
+
