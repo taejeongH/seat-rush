@@ -20,6 +20,12 @@ spring:
 server:
   port: 8081
 
+jwt:
+  issuer: seat-rush-ticket-service
+  private-key-location: classpath:cert/private-key.pem
+  public-key-location: classpath:cert/public-key.pem
+  access-token-expiration-seconds: ${JWT_ACCESS_TOKEN_EXPIRATION_SECONDS:3600}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
