@@ -1,7 +1,28 @@
 spring:
   application:
     name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: queue-service
+              uri: ${QUEUE_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/schedules/*/queues/**
+            - id: ticket-service
+              uri: ${TICKET_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/auth/**,/api/users/**,/api/concerts/**,/api/schedules/**,/api/reservations/**
+            - id: payment-service
+              uri: ${PAYMENT_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/payments/**
 
 server:
   port: 8080
+
+jwt:
+  issuer: seat-rush-ticket-service
+  public-key-location: classpath:cert/public-key.pem
 
