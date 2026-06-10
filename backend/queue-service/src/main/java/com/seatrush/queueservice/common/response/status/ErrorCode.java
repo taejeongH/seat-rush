@@ -8,7 +8,9 @@ public enum ErrorCode {
     ENTITY_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMON003", "존재하지 않는 리소스입니다."),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "COMMON004", "지원하지 않는 HTTP 메서드입니다."),
     DUPLICATE_RESOURCE(HttpStatus.CONFLICT, "COMMON005", "이미 존재하는 리소스입니다."),
-    INVALID_REQUEST(HttpStatus.BAD_REQUEST, "COMMON006", "잘못된 요청입니다.");
+    INVALID_REQUEST(HttpStatus.BAD_REQUEST, "COMMON006", "잘못된 요청입니다."),
+    AUTHENTICATION_REQUIRED(HttpStatus.UNAUTHORIZED, "AUTH003", "인증이 필요합니다."),
+    QUEUE_ENTRY_NOT_FOUND(HttpStatus.NOT_FOUND, "QUEUE001", "대기열 진입 정보를 찾을 수 없습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

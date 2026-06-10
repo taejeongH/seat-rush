@@ -10,6 +10,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
@@ -52,6 +53,17 @@ public class GlobalExceptionHandler {
         logWarn(ErrorCode.METHOD_NOT_ALLOWED, request, exception.getMessage());
 
         return ApiResponse.onFailure(ErrorCode.METHOD_NOT_ALLOWED);
+    }
+
+    // Gateway에서 전달해야 하는 사용자 헤더가 없으면 인증 오류 응답으로 변환한다.
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingRequestHeader(
+            MissingRequestHeaderException exception,
+            HttpServletRequest request
+    ) {
+        logWarn(ErrorCode.AUTHENTICATION_REQUIRED, request, exception.getMessage());
+
+        return ApiResponse.onFailure(ErrorCode.AUTHENTICATION_REQUIRED);
     }
 
     // 예상하지 못한 모든 예외를 서버 내부 오류 응답으로 변환한다.
