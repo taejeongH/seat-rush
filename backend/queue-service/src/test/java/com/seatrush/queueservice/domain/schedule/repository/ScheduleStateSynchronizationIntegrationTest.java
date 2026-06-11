@@ -65,6 +65,29 @@ class ScheduleStateSynchronizationIntegrationTest {
     }
 
     /**
+     * 기존 문자열 시간 형식은 동일 version 이벤트로 epoch milliseconds 형식으로 변환합니다.
+     */
+    @Test
+    void sameVersionMigratesLegacyTimeFormat() {
+        String key = QueueKey.scheduleState(SCHEDULE_ID);
+        redisTemplate.opsForHash().put(key, "status", ScheduleStatus.UPCOMING.name());
+        redisTemplate.opsForHash().put(key, "bookingOpenAt", "2026-06-11T19:00:00");
+        redisTemplate.opsForHash().put(key, "bookingCloseAt", "2026-06-11T20:00:00");
+        redisTemplate.opsForHash().put(key, "version", "1");
+
+        ScheduleStateSyncResult result = scheduleStateRepository.synchronize(
+                createEvent(ScheduleStatus.UPCOMING, 1)
+        );
+
+        Object bookingOpenAt = redisTemplate.opsForHash().get(key, "bookingOpenAt");
+        Object bookingCloseAt = redisTemplate.opsForHash().get(key, "bookingCloseAt");
+
+        assertThat(result).isEqualTo(ScheduleStateSyncResult.APPLIED);
+        assertThat(bookingOpenAt.toString()).containsOnlyDigits();
+        assertThat(bookingCloseAt.toString()).containsOnlyDigits();
+    }
+
+    /**
      * 동기화되지 않은 회차의 대기열 진입이 차단되는지 검증합니다.
      */
     @Test
@@ -88,16 +111,97 @@ class ScheduleStateSynchronizationIntegrationTest {
                 .isEqualTo(ErrorCode.QUEUE_NOT_OPEN);
     }
 
+    /**
+     * UPCOMING 상태라도 현재 시간이 예매 가능 구간이면 대기열 진입을 허용합니다.
+     */
+    @Test
+    void upcomingScheduleIsAcceptedDuringBookingPeriod() {
+        scheduleStateRepository.synchronize(createEvent(
+                ScheduleStatus.UPCOMING,
+                LocalDateTime.now().minusMinutes(1),
+                LocalDateTime.now().plusHours(1),
+                1
+        ));
+
+        assertThat(queueService.join(SCHEDULE_ID, 1L).position()).isEqualTo(1);
+    }
+
+    /**
+     * Redis 서버 시각이 예매 시작 전이면 대기열 진입을 차단합니다.
+     */
+    @Test
+    void scheduleIsRejectedBeforeBookingOpenTime() {
+        scheduleStateRepository.synchronize(createEvent(
+                ScheduleStatus.UPCOMING,
+                LocalDateTime.now().plusHours(1),
+                LocalDateTime.now().plusHours(2),
+                1
+        ));
+
+        assertQueueNotOpen();
+    }
+
+    /**
+     * Redis 서버 시각이 예매 종료 시각을 지났으면 대기열 진입을 차단합니다.
+     */
+    @Test
+    void scheduleIsRejectedAfterBookingCloseTime() {
+        scheduleStateRepository.synchronize(createEvent(
+                ScheduleStatus.BOOKING_OPEN,
+                LocalDateTime.now().minusHours(2),
+                LocalDateTime.now().minusHours(1),
+                1
+        ));
+
+        assertQueueNotOpen();
+    }
+
+    /**
+     * 취소된 회차는 예매 가능 시간 안이어도 대기열 진입을 차단합니다.
+     */
+    @Test
+    void canceledScheduleIsRejectedDuringBookingPeriod() {
+        scheduleStateRepository.synchronize(createEvent(
+                ScheduleStatus.CANCELED,
+                LocalDateTime.now().minusMinutes(1),
+                LocalDateTime.now().plusHours(1),
+                1
+        ));
+
+        assertQueueNotOpen();
+    }
+
     private ScheduleStatusEvent createEvent(ScheduleStatus status, long version) {
+        return createEvent(
+                status,
+                LocalDateTime.now().minusMinutes(1),
+                LocalDateTime.now().plusHours(1),
+                version
+        );
+    }
+
+    private ScheduleStatusEvent createEvent(
+            ScheduleStatus status,
+            LocalDateTime bookingOpenAt,
+            LocalDateTime bookingCloseAt,
+            long version
+    ) {
         return new ScheduleStatusEvent(
                 UUID.randomUUID(),
                 ScheduleEventType.UPDATED,
                 SCHEDULE_ID,
                 status,
-                LocalDateTime.now().minusMinutes(1),
-                LocalDateTime.now().plusHours(1),
+                bookingOpenAt,
+                bookingCloseAt,
                 version,
                 Instant.now()
         );
+    }
+
+    private void assertQueueNotOpen() {
+        assertThatThrownBy(() -> queueService.join(SCHEDULE_ID, 1L))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.QUEUE_NOT_OPEN);
     }
 }
