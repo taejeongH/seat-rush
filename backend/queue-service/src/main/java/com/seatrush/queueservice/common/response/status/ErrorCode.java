@@ -10,7 +10,9 @@ public enum ErrorCode {
     DUPLICATE_RESOURCE(HttpStatus.CONFLICT, "COMMON005", "이미 존재하는 리소스입니다."),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "COMMON006", "잘못된 요청입니다."),
     AUTHENTICATION_REQUIRED(HttpStatus.UNAUTHORIZED, "AUTH003", "인증이 필요합니다."),
-    QUEUE_ENTRY_NOT_FOUND(HttpStatus.NOT_FOUND, "QUEUE001", "대기열 진입 정보를 찾을 수 없습니다.");
+    QUEUE_ENTRY_NOT_FOUND(HttpStatus.NOT_FOUND, "QUEUE001", "대기열 진입 정보를 찾을 수 없습니다."),
+    SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "QUEUE002", "대기열 회차 정보를 찾을 수 없습니다."),
+    QUEUE_NOT_OPEN(HttpStatus.CONFLICT, "QUEUE003", "대기열에 진입할 수 없는 회차 상태입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

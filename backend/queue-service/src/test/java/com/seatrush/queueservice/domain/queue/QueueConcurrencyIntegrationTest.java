@@ -2,6 +2,11 @@ package com.seatrush.queueservice.domain.queue;
 
 import com.seatrush.queueservice.domain.queue.dto.response.QueueJoinResponseDto;
 import com.seatrush.queueservice.domain.queue.service.QueueService;
+import com.seatrush.queueservice.domain.schedule.event.ScheduleEventType;
+import com.seatrush.queueservice.domain.schedule.event.ScheduleStatus;
+import com.seatrush.queueservice.domain.schedule.event.ScheduleStatusEvent;
+import com.seatrush.queueservice.domain.schedule.repository.ScheduleStateRedisRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +16,9 @@ import org.springframework.data.redis.core.RedisTemplate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,11 +38,29 @@ class QueueConcurrencyIntegrationTest {
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
 
+    @Autowired
+    private ScheduleStateRedisRepository scheduleStateRepository;
+
+    @BeforeEach
+    void setUp() {
+        scheduleStateRepository.synchronize(new ScheduleStatusEvent(
+                UUID.randomUUID(),
+                ScheduleEventType.SYNCHRONIZED,
+                SCHEDULE_ID,
+                ScheduleStatus.BOOKING_OPEN,
+                LocalDateTime.now().minusMinutes(1),
+                LocalDateTime.now().plusHours(1),
+                1,
+                Instant.now()
+        ));
+    }
+
     @AfterEach
     void cleanUp() {
         redisTemplate.delete(List.of(
                 QueueKey.waiting(SCHEDULE_ID),
-                QueueKey.sequence(SCHEDULE_ID)
+                QueueKey.sequence(SCHEDULE_ID),
+                QueueKey.scheduleState(SCHEDULE_ID)
         ));
     }
 

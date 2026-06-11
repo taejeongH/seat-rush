@@ -7,6 +7,7 @@ public final class QueueKey {
 
     private static final String WAITING_KEY_FORMAT = "queue:schedule:%d:waiting";
     private static final String SEQUENCE_KEY_FORMAT = "queue:schedule:%d:sequence";
+    private static final String SCHEDULE_STATE_KEY_FORMAT = "queue:schedule:%d:state";
 
     private QueueKey() {
     }
@@ -17,5 +18,9 @@ public final class QueueKey {
 
     public static String sequence(Long scheduleId) {
         return SEQUENCE_KEY_FORMAT.formatted(scheduleId);
+    }
+
+    public static String scheduleState(Long scheduleId) {
+        return SCHEDULE_STATE_KEY_FORMAT.formatted(scheduleId);
     }
 }
