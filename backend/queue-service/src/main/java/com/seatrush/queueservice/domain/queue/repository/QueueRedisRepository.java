@@ -15,12 +15,32 @@ public class QueueRedisRepository {
 
     private static final DefaultRedisScript<List> JOIN_QUEUE_SCRIPT =
             new DefaultRedisScript<>("""
-                    local scheduleStatus = redis.call('HGET', KEYS[3], 'status')
-                    if not scheduleStatus then
+                    local schedule = redis.call(
+                        'HMGET',
+                        KEYS[3],
+                        'status',
+                        'bookingOpenAt',
+                        'bookingCloseAt'
+                    )
+                    local scheduleStatus = schedule[1]
+                    local bookingOpenAt = tonumber(schedule[2])
+                    local bookingCloseAt = tonumber(schedule[3])
+
+                    if not scheduleStatus or not bookingOpenAt or not bookingCloseAt then
                         return {-1, 0}
                     end
 
-                    if scheduleStatus ~= 'BOOKING_OPEN' then
+                    if scheduleStatus == 'CANCELED'
+                        or scheduleStatus == 'BOOKING_CLOSED' then
+                        return {-2, 0}
+                    end
+
+                    local redisTime = redis.call('TIME')
+                    local nowMillis =
+                        tonumber(redisTime[1]) * 1000
+                        + math.floor(tonumber(redisTime[2]) / 1000)
+
+                    if nowMillis < bookingOpenAt or nowMillis >= bookingCloseAt then
                         return {-2, 0}
                     end
 
@@ -42,7 +62,7 @@ public class QueueRedisRepository {
     }
 
     /**
-     * 중복 확인, 순번 생성, 대기열 등록을 하나의 Lua 스크립트로 원자적으로 처리합니다.
+     * 오픈 시간 판정, 중복 확인, 순번 생성, 대기열 등록을 하나의 Lua Script로 처리합니다.
      *
      * @return 현재 대기 순번과 기존 진입 여부
      */
@@ -69,7 +89,7 @@ public class QueueRedisRepository {
     }
 
     /**
-     * Redis의 0부터 시작하는 rank를 조회합니다.
+     * Redis의 0부터 시작하는 대기열 rank를 조회합니다.
      */
     public Long getRank(Long scheduleId, Long userId) {
         return redisTemplate.opsForZSet()

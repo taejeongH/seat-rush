@@ -1,11 +1,13 @@
 package com.seatrush.queueservice.domain.schedule.repository;
 
 import com.seatrush.queueservice.domain.queue.QueueKey;
+import com.seatrush.queueservice.domain.schedule.config.ScheduleTimeProperties;
 import com.seatrush.queueservice.domain.schedule.event.ScheduleStatusEvent;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -16,10 +18,26 @@ public class ScheduleStateRedisRepository {
 
     private static final DefaultRedisScript<Long> SYNC_SCHEDULE_SCRIPT =
             new DefaultRedisScript<>("""
-                    local currentVersion = redis.call('HGET', KEYS[1], 'version')
+                    local current = redis.call(
+                        'HMGET',
+                        KEYS[1],
+                        'version',
+                        'bookingOpenAt',
+                        'bookingCloseAt'
+                    )
+                    local currentVersion = current[1]
 
-                    if currentVersion and tonumber(currentVersion) >= tonumber(ARGV[4]) then
-                        return 0
+                    if currentVersion then
+                        if tonumber(currentVersion) > tonumber(ARGV[4]) then
+                            return 0
+                        end
+
+                        local timeFormatIsCurrent =
+                            tonumber(current[2]) ~= nil and tonumber(current[3]) ~= nil
+                        if tonumber(currentVersion) == tonumber(ARGV[4])
+                            and timeFormatIsCurrent then
+                            return 0
+                        end
                     end
 
                     redis.call(
@@ -34,21 +52,26 @@ public class ScheduleStateRedisRepository {
                     """, Long.class);
 
     private final RedisTemplate<String, String> redisTemplate;
+    private final ScheduleTimeProperties properties;
 
-    public ScheduleStateRedisRepository(RedisTemplate<String, String> redisTemplate) {
+    public ScheduleStateRedisRepository(
+            RedisTemplate<String, String> redisTemplate,
+            ScheduleTimeProperties properties
+    ) {
         this.redisTemplate = redisTemplate;
+        this.properties = properties;
     }
 
     /**
-     * 현재 version보다 새로운 이벤트만 Redis에 반영합니다.
+     * 현재 version보다 새로운 이벤트만 반영하며 기존 문자열 시간 형식은 다시 저장합니다.
      */
     public ScheduleStateSyncResult synchronize(ScheduleStatusEvent event) {
         Long result = redisTemplate.execute(
                 SYNC_SCHEDULE_SCRIPT,
                 List.of(QueueKey.scheduleState(event.scheduleId())),
                 event.status().name(),
-                event.bookingOpenAt().toString(),
-                event.bookingCloseAt().toString(),
+                toEpochMillis(event.bookingOpenAt()),
+                toEpochMillis(event.bookingCloseAt()),
                 Long.toString(event.version())
         );
 
@@ -59,5 +82,13 @@ public class ScheduleStateRedisRepository {
         return result == 1
                 ? ScheduleStateSyncResult.APPLIED
                 : ScheduleStateSyncResult.IGNORED;
+    }
+
+    private String toEpochMillis(LocalDateTime dateTime) {
+        return Long.toString(
+                dateTime.atZone(properties.zoneId())
+                        .toInstant()
+                        .toEpochMilli()
+        );
     }
 }
