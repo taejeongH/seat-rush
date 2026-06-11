@@ -13,7 +13,7 @@ spring:
             - id: ticket-service
               uri: ${TICKET_SERVICE_URL:http://localhost:8081}
               predicates:
-                - Path=/api/auth/**,/api/users/**,/api/concerts/**,/api/schedules/**,/api/reservations/**
+                - Path=/api/auth/**,/api/users/**,/api/concerts/**,/api/admin/**,/api/schedules/**,/api/reservations/**
             - id: payment-service
               uri: ${PAYMENT_SERVICE_URL:http://localhost:8083}
               predicates:

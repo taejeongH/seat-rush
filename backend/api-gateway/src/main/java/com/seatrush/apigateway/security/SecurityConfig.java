@@ -5,6 +5,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 
 /**
@@ -35,6 +38,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
                 .authorizeExchange(authorize -> authorize
+                        .pathMatchers("/api/admin/**").hasRole("ADMIN")
                         .pathMatchers("/api/auth/**").permitAll()
                         .pathMatchers(HttpMethod.GET, "/api/concerts/**").permitAll()
                         .pathMatchers("/health", "/error").permitAll()
@@ -42,8 +46,20 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler)
-                        .jwt(jwt -> {
-                        }))
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
                 .build();
+    }
+
+    /**
+     * JWT role 클레임을 Spring Security의 ROLE_ 권한으로 변환합니다.
+     */
+    private ReactiveJwtAuthenticationConverterAdapter jwtAuthenticationConverter() {
+        JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
+        authoritiesConverter.setAuthoritiesClaimName("role");
+        authoritiesConverter.setAuthorityPrefix("ROLE_");
+
+        JwtAuthenticationConverter authenticationConverter = new JwtAuthenticationConverter();
+        authenticationConverter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
+        return new ReactiveJwtAuthenticationConverterAdapter(authenticationConverter);
     }
 }
