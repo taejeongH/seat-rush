@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.time.LocalDateTime;
 
@@ -39,6 +40,10 @@ public class ConcertSchedule {
     @Column(nullable = false, length = 30)
     private ScheduleStatus status;
 
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     protected ConcertSchedule() {
     }
 
@@ -60,5 +65,9 @@ public class ConcertSchedule {
 
     public ScheduleStatus getStatus() {
         return status;
+    }
+
+    public Long getVersion() {
+        return version;
     }
 }
