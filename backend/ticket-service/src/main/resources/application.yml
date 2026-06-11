@@ -33,8 +33,24 @@ jwt:
   public-key-location: classpath:cert/public-key.pem
   access-token-expiration-seconds: ${JWT_ACCESS_TOKEN_EXPIRATION_SECONDS:3600}
 
-schedule:
-  initial-sync-enabled: ${SCHEDULE_INITIAL_SYNC_ENABLED:true}
+outbox:
+  relay:
+    enabled: ${OUTBOX_RELAY_ENABLED:true}
+    fixed-delay-ms: ${OUTBOX_RELAY_FIXED_DELAY_MS:1000}
+    batch-size: ${OUTBOX_RELAY_BATCH_SIZE:100}
+    max-retry-count: ${OUTBOX_RELAY_MAX_RETRY_COUNT:5}
+    send-timeout-seconds: ${OUTBOX_RELAY_SEND_TIMEOUT_SECONDS:10}
+    processing-lease-seconds: ${OUTBOX_RELAY_PROCESSING_LEASE_SECONDS:30}
+  cleanup:
+    enabled: ${OUTBOX_CLEANUP_ENABLED:true}
+    cron: "${OUTBOX_CLEANUP_CRON:0 0 3 * * *}"
+    zone: ${OUTBOX_CLEANUP_ZONE:Asia/Seoul}
+    retention-days: ${OUTBOX_CLEANUP_RETENTION_DAYS:7}
+    batch-size: ${OUTBOX_CLEANUP_BATCH_SIZE:1000}
+    max-batches-per-run: ${OUTBOX_CLEANUP_MAX_BATCHES_PER_RUN:100}
+  monitor:
+    enabled: ${OUTBOX_MONITOR_ENABLED:true}
+    fixed-delay-ms: ${OUTBOX_MONITOR_FIXED_DELAY_MS:60000}
 
 springdoc:
   swagger-ui:

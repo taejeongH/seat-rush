@@ -10,7 +10,8 @@ public record ConcertScheduleResponseDto(
         LocalDateTime performanceAt,
         LocalDateTime bookingOpenAt,
         LocalDateTime bookingCloseAt,
-        ScheduleStatus status
+        ScheduleStatus status,
+        Long version
 ) {
 
     public static ConcertScheduleResponseDto from(ConcertSchedule schedule) {
@@ -19,7 +20,8 @@ public record ConcertScheduleResponseDto(
                 schedule.getPerformanceAt(),
                 schedule.getBookingOpenAt(),
                 schedule.getBookingCloseAt(),
-                schedule.getStatus()
+                schedule.getStatus(),
+                schedule.getVersion()
         );
     }
 }
