@@ -15,6 +15,15 @@ public class QueueRedisRepository {
 
     private static final DefaultRedisScript<List> JOIN_QUEUE_SCRIPT =
             new DefaultRedisScript<>("""
+                    local scheduleStatus = redis.call('HGET', KEYS[3], 'status')
+                    if not scheduleStatus then
+                        return {-1, 0}
+                    end
+
+                    if scheduleStatus ~= 'BOOKING_OPEN' then
+                        return {-2, 0}
+                    end
+
                     if redis.call('ZSCORE', KEYS[1], ARGV[1]) then
                         local rank = redis.call('ZRANK', KEYS[1], ARGV[1])
                         return {rank + 1, 1}
@@ -41,7 +50,11 @@ public class QueueRedisRepository {
     public QueueJoinResult join(Long scheduleId, Long userId) {
         List<Long> result = redisTemplate.execute(
                 JOIN_QUEUE_SCRIPT,
-                List.of(QueueKey.waiting(scheduleId), QueueKey.sequence(scheduleId)),
+                List.of(
+                        QueueKey.waiting(scheduleId),
+                        QueueKey.sequence(scheduleId),
+                        QueueKey.scheduleState(scheduleId)
+                ),
                 userId.toString()
         );
 

@@ -27,6 +27,7 @@ public class QueueService {
      */
     public QueueJoinResponseDto join(Long scheduleId, Long userId) {
         QueueJoinResult joinResult = queueRedisRepository.join(scheduleId, userId);
+        validateScheduleState(joinResult.position());
         long totalWaiting = queueRedisRepository.getWaitingCount(scheduleId);
 
         return new QueueJoinResponseDto(
@@ -61,5 +62,15 @@ public class QueueService {
         }
 
         return rank + 1;
+    }
+
+    private void validateScheduleState(long position) {
+        if (position == -1) {
+            throw new CustomException(ErrorCode.SCHEDULE_NOT_FOUND);
+        }
+
+        if (position == -2) {
+            throw new CustomException(ErrorCode.QUEUE_NOT_OPEN);
+        }
     }
 }
