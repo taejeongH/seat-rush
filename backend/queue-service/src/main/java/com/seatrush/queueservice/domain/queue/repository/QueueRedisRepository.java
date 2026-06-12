@@ -13,6 +13,32 @@ import java.util.List;
 @Repository
 public class QueueRedisRepository {
 
+    private static final DefaultRedisScript<List> GET_ADMISSION_STATE_SCRIPT =
+            new DefaultRedisScript<>("""
+                    local redisTime = redis.call('TIME')
+                    local nowMillis =
+                        tonumber(redisTime[1]) * 1000
+                        + math.floor(tonumber(redisTime[2]) / 1000)
+
+                    redis.call('ZREMRANGEBYSCORE', KEYS[2], '-inf', nowMillis)
+
+                    local rank = redis.call('ZRANK', KEYS[1], ARGV[1])
+                    if not rank then
+                        return {-1, 0, 0}
+                    end
+
+                    local totalWaiting = redis.call('ZCARD', KEYS[1])
+                    local activeCount = redis.call('ZCARD', KEYS[2])
+                    local availableSlots = tonumber(ARGV[2]) - activeCount
+                    local enterable = 0
+
+                    if availableSlots > 0 and rank < availableSlots then
+                        enterable = 1
+                    end
+
+                    return {rank + 1, totalWaiting, enterable}
+                    """, List.class);
+
     private static final DefaultRedisScript<List> JOIN_QUEUE_SCRIPT =
             new DefaultRedisScript<>("""
                     local schedule = redis.call(
@@ -102,6 +128,43 @@ public class QueueRedisRepository {
     public long getWaitingCount(Long scheduleId) {
         Long count = redisTemplate.opsForZSet().size(QueueKey.waiting(scheduleId));
         return count == null ? 0 : count;
+    }
+
+    /**
+     * 현재 순번과 활성 입장 슬롯을 기준으로 사용자의 입장 가능 상태를 조회합니다.
+     */
+    @SuppressWarnings("unchecked")
+    public QueueAdmissionState getAdmissionState(
+            Long scheduleId,
+            Long userId,
+            int admissionCapacity
+    ) {
+        List<Object> result = redisTemplate.execute(
+                GET_ADMISSION_STATE_SCRIPT,
+                List.of(
+                        QueueKey.waiting(scheduleId),
+                        QueueKey.activeEntries(scheduleId)
+                ),
+                userId.toString(),
+                Integer.toString(admissionCapacity)
+        );
+
+        if (result == null || result.size() != 3) {
+            throw new IllegalStateException("대기열 입장 가능 상태를 확인할 수 없습니다.");
+        }
+
+        return new QueueAdmissionState(
+                toLong(result.get(0)),
+                toLong(result.get(1)),
+                toLong(result.get(2)) == 1
+        );
+    }
+
+    private long toLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return Long.parseLong(value.toString());
     }
 
     public record QueueJoinResult(

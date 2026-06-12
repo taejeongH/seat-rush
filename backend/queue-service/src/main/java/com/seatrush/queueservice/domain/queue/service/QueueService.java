@@ -3,8 +3,10 @@ package com.seatrush.queueservice.domain.queue.service;
 import com.seatrush.queueservice.common.exception.CustomException;
 import com.seatrush.queueservice.common.response.status.ErrorCode;
 import com.seatrush.queueservice.domain.queue.QueueStatus;
+import com.seatrush.queueservice.domain.queue.config.QueueAdmissionProperties;
 import com.seatrush.queueservice.domain.queue.dto.response.QueueJoinResponseDto;
 import com.seatrush.queueservice.domain.queue.dto.response.QueuePositionResponseDto;
+import com.seatrush.queueservice.domain.queue.repository.QueueAdmissionState;
 import com.seatrush.queueservice.domain.queue.repository.QueueRedisRepository;
 import com.seatrush.queueservice.domain.queue.repository.QueueRedisRepository.QueueJoinResult;
 import org.springframework.stereotype.Service;
@@ -16,9 +18,14 @@ import org.springframework.stereotype.Service;
 public class QueueService {
 
     private final QueueRedisRepository queueRedisRepository;
+    private final QueueAdmissionProperties admissionProperties;
 
-    public QueueService(QueueRedisRepository queueRedisRepository) {
+    public QueueService(
+            QueueRedisRepository queueRedisRepository,
+            QueueAdmissionProperties admissionProperties
+    ) {
         this.queueRedisRepository = queueRedisRepository;
+        this.admissionProperties = admissionProperties;
     }
 
     /**
@@ -43,25 +50,22 @@ public class QueueService {
      * 사용자의 현재 대기 순번을 조회합니다.
      */
     public QueuePositionResponseDto getMyPosition(Long scheduleId, Long userId) {
-        long position = getPosition(scheduleId, userId);
-        long totalWaiting = queueRedisRepository.getWaitingCount(scheduleId);
-
-        return new QueuePositionResponseDto(
+        QueueAdmissionState state = queueRedisRepository.getAdmissionState(
                 scheduleId,
-                position,
-                totalWaiting,
-                QueueStatus.WAITING
+                userId,
+                admissionProperties.capacity()
         );
-    }
 
-    private long getPosition(Long scheduleId, Long userId) {
-        Long rank = queueRedisRepository.getRank(scheduleId, userId);
-
-        if (rank == null) {
+        if (state.position() == -1) {
             throw new CustomException(ErrorCode.QUEUE_ENTRY_NOT_FOUND);
         }
 
-        return rank + 1;
+        return new QueuePositionResponseDto(
+                scheduleId,
+                state.position(),
+                state.totalWaiting(),
+                state.enterable() ? QueueStatus.ENTERABLE : QueueStatus.WAITING
+        );
     }
 
     private void validateScheduleState(long position) {

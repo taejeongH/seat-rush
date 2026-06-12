@@ -4,5 +4,6 @@
 
 - `private-key.pem`: accessToken 서명에 사용하는 PKCS#8 private key
 - `public-key.pem`: accessToken 검증에 사용하는 X.509 public key
+- `entry-token-public-key.pem`: Queue Service가 발급한 entryToken 검증에 사용하는 X.509 public key
 
 키 파일은 classpath에서 읽으며 실제 PEM 파일은 Git에 포함하지 않습니다.

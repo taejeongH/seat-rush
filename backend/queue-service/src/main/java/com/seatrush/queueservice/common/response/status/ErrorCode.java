@@ -12,7 +12,8 @@ public enum ErrorCode {
     AUTHENTICATION_REQUIRED(HttpStatus.UNAUTHORIZED, "AUTH003", "인증이 필요합니다."),
     QUEUE_ENTRY_NOT_FOUND(HttpStatus.NOT_FOUND, "QUEUE001", "대기열 진입 정보를 찾을 수 없습니다."),
     SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "QUEUE002", "대기열 회차 정보를 찾을 수 없습니다."),
-    QUEUE_NOT_OPEN(HttpStatus.CONFLICT, "QUEUE003", "대기열에 진입할 수 없는 회차 상태입니다.");
+    QUEUE_NOT_OPEN(HttpStatus.CONFLICT, "QUEUE003", "대기열에 진입할 수 없는 회차 상태입니다."),
+    ENTRY_NOT_ALLOWED(HttpStatus.CONFLICT, "ENTRY_TOKEN001", "아직 좌석 선택 단계에 입장할 수 없습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

@@ -25,6 +25,17 @@ server:
 schedule:
   time-zone: ${SCHEDULE_TIME_ZONE:Asia/Seoul}
 
+queue:
+  admission:
+    capacity: ${QUEUE_ADMISSION_CAPACITY:100}
+
+entry-token:
+  ttl: ${ENTRY_TOKEN_TTL:10m}
+  issuer: ${ENTRY_TOKEN_ISSUER:seat-rush-queue-service}
+  audience: ${ENTRY_TOKEN_AUDIENCE:seat-rush-ticket-service}
+  private-key-location: classpath:cert/entry-token-private-key.pem
+  public-key-location: classpath:cert/entry-token-public-key.pem
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
