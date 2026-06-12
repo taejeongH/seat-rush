@@ -2,6 +2,7 @@ package com.seatrush.queueservice.domain.queue;
 
 import com.seatrush.queueservice.domain.queue.controller.QueueController;
 import com.seatrush.queueservice.domain.queue.service.QueueService;
+import com.seatrush.queueservice.domain.entrytoken.service.EntryTokenService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -21,12 +22,25 @@ class QueueControllerTest {
     @MockitoBean
     private QueueService queueService;
 
+    @MockitoBean
+    private EntryTokenService entryTokenService;
+
     /**
      * 사용자 헤더가 없으면 인증 오류를 반환하는지 검증합니다.
      */
     @Test
     void missingUserHeaderReturnsUnauthorized() throws Exception {
         mockMvc.perform(post("/api/schedules/1/queues/join"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH003"));
+    }
+
+    /**
+     * entryToken 발급 요청에 사용자 헤더가 없으면 인증 오류를 반환하는지 검증합니다.
+     */
+    @Test
+    void enterWithoutUserHeaderReturnsUnauthorized() throws Exception {
+        mockMvc.perform(post("/api/schedules/1/queues/enter"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("AUTH003"));
     }

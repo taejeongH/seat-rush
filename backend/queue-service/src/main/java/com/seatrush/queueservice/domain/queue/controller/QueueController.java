@@ -2,6 +2,8 @@ package com.seatrush.queueservice.domain.queue.controller;
 
 import com.seatrush.queueservice.common.response.ApiResponse;
 import com.seatrush.queueservice.common.response.status.SuccessCode;
+import com.seatrush.queueservice.domain.entrytoken.dto.response.EntryTokenIssueResponseDto;
+import com.seatrush.queueservice.domain.entrytoken.service.EntryTokenService;
 import com.seatrush.queueservice.domain.queue.dto.response.QueueJoinResponseDto;
 import com.seatrush.queueservice.domain.queue.dto.response.QueuePositionResponseDto;
 import com.seatrush.queueservice.domain.queue.service.QueueService;
@@ -27,9 +29,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class QueueController {
 
     private final QueueService queueService;
+    private final EntryTokenService entryTokenService;
 
-    public QueueController(QueueService queueService) {
+    public QueueController(QueueService queueService, EntryTokenService entryTokenService) {
         this.queueService = queueService;
+        this.entryTokenService = entryTokenService;
     }
 
     @Operation(
@@ -58,5 +62,19 @@ public class QueueController {
             @RequestHeader("X-User-Id") Long userId
     ) {
         return ApiResponse.onSuccess(SuccessCode.OK, queueService.getMyPosition(scheduleId, userId));
+    }
+
+    @Operation(
+            summary = "좌석 선택 단계 입장",
+            description = "입장 가능한 순번의 사용자에게 제한 시간 동안 사용할 entryToken을 발급합니다."
+    )
+    @PostMapping("/enter")
+    public ResponseEntity<ApiResponse<EntryTokenIssueResponseDto>> enter(
+            @Parameter(description = "회차 ID", example = "1")
+            @Positive @PathVariable Long scheduleId,
+            @Parameter(hidden = true)
+            @RequestHeader("X-User-Id") Long userId
+    ) {
+        return ApiResponse.onSuccess(SuccessCode.OK, entryTokenService.issue(scheduleId, userId));
     }
 }
