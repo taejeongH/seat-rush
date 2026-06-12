@@ -19,7 +19,10 @@ public enum ErrorCode {
     AUTHENTICATION_REQUIRED(HttpStatus.UNAUTHORIZED, "AUTH003", "인증이 필요합니다."),
     INVALID_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH004", "유효하지 않은 accessToken입니다."),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "AUTH005", "접근 권한이 없습니다."),
-    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER001", "사용자를 찾을 수 없습니다.");
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER001", "사용자를 찾을 수 없습니다."),
+    INVALID_ENTRY_TOKEN(HttpStatus.UNAUTHORIZED, "ENTRY_TOKEN001", "유효하지 않거나 만료된 entryToken입니다."),
+    ENTRY_TOKEN_USER_MISMATCH(HttpStatus.FORBIDDEN, "ENTRY_TOKEN002", "entryToken의 사용자 정보가 일치하지 않습니다."),
+    ENTRY_TOKEN_SCHEDULE_MISMATCH(HttpStatus.FORBIDDEN, "ENTRY_TOKEN003", "entryToken의 회차 정보가 일치하지 않습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
