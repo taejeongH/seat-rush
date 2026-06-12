@@ -6,7 +6,7 @@ services:
     container_name: seat-rush-local-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     command: [ "redis-server", "--appendonly", "yes" ]
     volumes:
       - redis-data:/data
@@ -21,7 +21,7 @@ services:
     container_name: seat-rush-local-kafka
     restart: unless-stopped
     ports:
-      - "9092:9092"
+      - "127.0.0.1:9092:9092"
     environment:
       # KRaft 모드에서 사용하는 Kafka 노드 식별자와 역할
       # 단일 노드가 메시지를 처리하는 broker와 클러스터를 관리하는 controller 역할을 모두 수행한다.
@@ -49,6 +49,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_NUM_PARTITIONS: 3
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
     volumes:
       - kafka-data:/var/lib/kafka/data
     healthcheck:
@@ -70,7 +71,7 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
       DYNAMIC_CONFIG_ENABLED: "true"
     ports:
-      - "8089:8080"
+      - "127.0.0.1:8089:8080"
 
 volumes:
   redis-data:
