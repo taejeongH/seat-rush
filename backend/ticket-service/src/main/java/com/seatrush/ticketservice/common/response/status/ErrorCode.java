@@ -28,7 +28,11 @@ public enum ErrorCode {
     SEAT_NOT_AVAILABLE(HttpStatus.CONFLICT, "SEAT003", "선택한 좌석 중 이미 선점되었거나 예매된 좌석이 있습니다."),
     SEAT_HOLD_NOT_FOUND(HttpStatus.NOT_FOUND, "SEAT004", "좌석 선점 정보를 찾을 수 없거나 만료되었습니다."),
     SEAT_HOLD_ACCESS_DENIED(HttpStatus.FORBIDDEN, "SEAT005", "해당 좌석 선점에 접근할 권한이 없습니다."),
-    SEAT_HOLD_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "SEAT006", "한 번에 선점할 수 있는 좌석 수를 초과했습니다.");
+    SEAT_HOLD_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "SEAT006", "한 번에 선점할 수 있는 좌석 수를 초과했습니다."),
+    RESERVATION_NOT_FOUND(HttpStatus.NOT_FOUND, "RESERVATION001", "예매를 찾을 수 없습니다."),
+    RESERVATION_ALREADY_EXISTS(HttpStatus.CONFLICT, "RESERVATION002", "해당 좌석 선점으로 생성된 예매가 이미 존재합니다."),
+    INVALID_RESERVATION_STATE(HttpStatus.CONFLICT, "RESERVATION003", "현재 예매 상태에서는 요청을 처리할 수 없습니다."),
+    RESERVATION_SEAT_MISMATCH(HttpStatus.CONFLICT, "RESERVATION004", "좌석 선점 정보와 예매 좌석 정보가 일치하지 않습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

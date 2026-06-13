@@ -71,6 +71,54 @@ public class SeatHoldRedisRepository {
                     return redis.call('DEL', KEYS[#KEYS])
                     """, Long.class);
 
+    private static final DefaultRedisScript<Long> EXTEND_HOLD_SCRIPT =
+            new DefaultRedisScript<>("""
+                    -- KEYS[1..N]: 좌석별 선점 키
+                    -- KEYS[N+1]: hold 상세 정보 키
+                    -- ARGV[1]: holdId
+                    -- ARGV[2]: userId
+                    -- ARGV[3]: scheduleId
+                    -- ARGV[4]: entryTokenId
+                    -- ARGV[5]: 연장할 TTL(ms)
+                    -- ARGV[6]: 변경된 만료 시각(epoch millis)
+
+                    local hold = redis.call(
+                        'HMGET',
+                        KEYS[#KEYS],
+                        'userId',
+                        'scheduleId',
+                        'entryTokenId'
+                    )
+
+                    if not hold[1] or not hold[2] or not hold[3] then
+                        return 0
+                    end
+
+                    if hold[1] ~= ARGV[2]
+                        or hold[2] ~= ARGV[3]
+                        or hold[3] ~= ARGV[4] then
+                        return -1
+                    end
+
+                    for index = 1, #KEYS - 1 do
+                        if redis.call('GET', KEYS[index]) ~= ARGV[1] then
+                            return 0
+                        end
+                    end
+
+                    for index = 1, #KEYS - 1 do
+                        redis.call('PEXPIRE', KEYS[index], ARGV[5])
+                    end
+
+                    redis.call(
+                        'HSET',
+                        KEYS[#KEYS],
+                        'expiresAt', ARGV[6]
+                    )
+                    redis.call('PEXPIRE', KEYS[#KEYS], ARGV[5])
+                    return 1
+                    """, Long.class);
+
     private final RedisTemplate<String, String> redisTemplate;
 
     public SeatHoldRedisRepository(RedisTemplate<String, String> redisTemplate) {
@@ -135,6 +183,36 @@ public class SeatHoldRedisRepository {
                 parseSeatIds(values.get("seatIds").toString()),
                 Instant.ofEpochMilli(Long.parseLong(values.get("expiresAt").toString()))
         );
+    }
+
+    /**
+     * hold 소유권과 모든 좌석 선점을 다시 확인한 뒤 결제 기한까지 TTL을 연장합니다.
+     */
+    public boolean extendForReservation(
+            SeatHold hold,
+            long ttlMillis,
+            Instant expiresAt
+    ) {
+        List<String> keys = hold.seatIds().stream()
+                .map(seatId -> SeatHoldKey.seat(hold.scheduleId(), seatId))
+                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+        keys.add(SeatHoldKey.hold(hold.holdId()));
+
+        Long result = redisTemplate.execute(
+                EXTEND_HOLD_SCRIPT,
+                keys,
+                hold.holdId(),
+                hold.userId().toString(),
+                hold.scheduleId().toString(),
+                hold.entryTokenId(),
+                Long.toString(ttlMillis),
+                Long.toString(expiresAt.toEpochMilli())
+        );
+
+        if (result == null) {
+            throw new IllegalStateException("좌석 선점의 예매 귀속 결과를 확인할 수 없습니다.");
+        }
+        return result == 1;
     }
 
     /**
