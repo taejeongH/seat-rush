@@ -3,8 +3,8 @@ spring:
     name: queue-service
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+      host: ${QUEUE_REDIS_HOST:localhost}
+      port: ${QUEUE_REDIS_PORT:6379}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:

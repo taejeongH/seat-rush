@@ -1,15 +1,30 @@
 name: seat-rush-local-infra
 
 services:
-  redis:
+  queue-redis:
     image: redis:7.4-alpine
-    container_name: seat-rush-local-redis
+    container_name: seat-rush-local-queue-redis
     restart: unless-stopped
     ports:
       - "127.0.0.1:6379:6379"
     command: [ "redis-server", "--appendonly", "yes" ]
     volumes:
-      - redis-data:/data
+      - queue-redis-data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  seat-redis:
+    image: redis:7.4-alpine
+    container_name: seat-rush-local-seat-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6380:6379"
+    command: [ "redis-server", "--appendonly", "yes" ]
+    volumes:
+      - seat-redis-data:/data
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
@@ -74,7 +89,9 @@ services:
       - "127.0.0.1:8089:8080"
 
 volumes:
-  redis-data:
+  queue-redis-data:
     name: seat-rush-local-redis-data
+  seat-redis-data:
+    name: seat-rush-local-seat-redis-data
   kafka-data:
     name: seat-rush-local-kafka-data
