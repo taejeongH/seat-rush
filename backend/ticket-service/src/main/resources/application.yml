@@ -16,6 +16,10 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  data:
+    redis:
+      host: ${SEAT_REDIS_HOST:localhost}
+      port: ${SEAT_REDIS_PORT:6380}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -37,6 +41,11 @@ entry-token:
   issuer: ${ENTRY_TOKEN_ISSUER:seat-rush-queue-service}
   audience: ${ENTRY_TOKEN_AUDIENCE:seat-rush-ticket-service}
   public-key-location: classpath:cert/entry-token-public-key.pem
+
+seat:
+  hold:
+    ttl: ${SEAT_HOLD_TTL:5m}
+    max-seats: ${SEAT_HOLD_MAX_SEATS:4}
 
 outbox:
   relay:

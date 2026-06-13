@@ -25,7 +25,11 @@ public class EntryTokenValidator {
     /**
      * 서명과 표준 claim을 검증하고 요청 사용자 및 회차와 일치하는지 확인합니다.
      */
-    public EntryTokenClaims validate(String entryToken, Long scheduleId, Long userId) {
+    public EntryTokenClaims validate(String entryToken, Long userId) {
+        if (entryToken == null || entryToken.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_ENTRY_TOKEN);
+        }
+
         Jwt jwt = decode(entryToken);
         Long tokenUserId = parseLong(jwt.getSubject());
         Number scheduleIdClaim = jwt.getClaim("scheduleId");
@@ -38,16 +42,21 @@ public class EntryTokenValidator {
             throw new CustomException(ErrorCode.ENTRY_TOKEN_USER_MISMATCH);
         }
 
-        if (!tokenScheduleId.equals(scheduleId)) {
-            throw new CustomException(ErrorCode.ENTRY_TOKEN_SCHEDULE_MISMATCH);
-        }
-
         return new EntryTokenClaims(
                 jwt.getId(),
                 tokenUserId,
                 tokenScheduleId,
                 jwt.getExpiresAt()
         );
+    }
+
+    /**
+     * 검증된 entryToken의 회차와 요청 대상 회차가 일치하는지 확인합니다.
+     */
+    public void validateSchedule(EntryTokenClaims claims, Long scheduleId) {
+        if (!claims.scheduleId().equals(scheduleId)) {
+            throw new CustomException(ErrorCode.ENTRY_TOKEN_SCHEDULE_MISMATCH);
+        }
     }
 
     private Jwt decode(String entryToken) {

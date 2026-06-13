@@ -35,7 +35,7 @@ class EntryTokenValidatorTest {
     void validEntryTokenReturnsClaims() {
         when(jwtDecoder.decode("token")).thenReturn(createJwt("10", 20L));
 
-        EntryTokenClaims claims = validator.validate("token", 20L, 10L);
+        EntryTokenClaims claims = validator.validate("token", 10L);
 
         assertThat(claims.userId()).isEqualTo(10L);
         assertThat(claims.scheduleId()).isEqualTo(20L);
@@ -50,7 +50,7 @@ class EntryTokenValidatorTest {
         when(jwtDecoder.decode("token")).thenReturn(createJwt("10", 20L));
 
         assertErrorCode(
-                () -> validator.validate("token", 20L, 11L),
+                () -> validator.validate("token", 11L),
                 ErrorCode.ENTRY_TOKEN_USER_MISMATCH
         );
     }
@@ -60,10 +60,15 @@ class EntryTokenValidatorTest {
      */
     @Test
     void scheduleMismatchIsRejected() {
-        when(jwtDecoder.decode("token")).thenReturn(createJwt("10", 20L));
+        EntryTokenClaims claims = new EntryTokenClaims(
+                "entry-token-id",
+                10L,
+                20L,
+                Instant.now().plusSeconds(300)
+        );
 
         assertErrorCode(
-                () -> validator.validate("token", 21L, 10L),
+                () -> validator.validateSchedule(claims, 21L),
                 ErrorCode.ENTRY_TOKEN_SCHEDULE_MISMATCH
         );
     }
@@ -76,7 +81,7 @@ class EntryTokenValidatorTest {
         when(jwtDecoder.decode("token")).thenThrow(new JwtException("invalid"));
 
         assertErrorCode(
-                () -> validator.validate("token", 20L, 10L),
+                () -> validator.validate("token", 10L),
                 ErrorCode.INVALID_ENTRY_TOKEN
         );
     }
