@@ -13,9 +13,11 @@ import com.seatrush.ticketservice.domain.seat.repository.SeatHoldRedisRepository
 import com.seatrush.ticketservice.domain.seat.repository.SeatHoldResult;
 import com.seatrush.ticketservice.domain.seat.repository.SeatRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
@@ -96,6 +98,39 @@ public class SeatHoldService {
             throw new CustomException(ErrorCode.SEAT_HOLD_NOT_FOUND);
         }
         return SeatHoldResponseDto.from(hold);
+    }
+
+    /**
+     * 예매 생성 직전에 hold 소유권을 검증하고 예매 만료 시각까지 선점 TTL을 연장합니다.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public SeatHold extendForReservation(
+            String holdId,
+            EntryTokenClaims claims,
+            Duration ttl,
+            Instant expiresAt
+    ) {
+        SeatHold hold = findHold(holdId);
+        validateHoldAccess(hold, claims);
+
+        if (!holdRedisRepository.extendForReservation(
+                hold,
+                ttl.toMillis(),
+                expiresAt
+        )) {
+            throw new CustomException(ErrorCode.SEAT_HOLD_NOT_FOUND);
+        }
+        return hold;
+    }
+
+    /**
+     * 취소·만료된 예매의 hold가 아직 남아 있다면 즉시 해제합니다.
+     */
+    public void releaseIfPresent(String holdId) {
+        SeatHold hold = holdRedisRepository.findById(holdId);
+        if (hold != null) {
+            holdRedisRepository.release(hold);
+        }
     }
 
     private List<Long> validateSeatIds(List<Long> requestedSeatIds) {
