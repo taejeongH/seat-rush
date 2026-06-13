@@ -126,6 +126,30 @@ class SeatHoldRedisRepositoryIntegrationTest {
         assertThat(redisTemplate.hasKey(SeatHoldKey.seat(SCHEDULE_ID, FIRST_SEAT_ID))).isFalse();
     }
 
+    /**
+     * 유효한 hold는 예매 결제 기한까지 TTL만 연장하고 reservationId를 저장하지 않습니다.
+     */
+    @Test
+    void extendHoldTtlWhenBindingReservation() {
+        String holdId = "reservation-hold";
+        holdIds.add(holdId);
+        SeatHold hold = hold(holdId, List.of(FIRST_SEAT_ID));
+        assertThat(repository.hold(hold, 5_000).success()).isTrue();
+
+        boolean extended = repository.extendForReservation(
+                hold,
+                60_000,
+                Instant.now().plusSeconds(60)
+        );
+
+        assertThat(extended).isTrue();
+        assertThat(redisTemplate.opsForHash()
+                .hasKey(SeatHoldKey.hold(holdId), "reservationId"))
+                .isFalse();
+        assertThat(redisTemplate.getExpire(SeatHoldKey.seat(SCHEDULE_ID, FIRST_SEAT_ID)))
+                .isBetween(55L, 60L);
+    }
+
     private SeatHold hold(String holdId, List<Long> seatIds) {
         return new SeatHold(
                 holdId,
