@@ -22,7 +22,13 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER001", "사용자를 찾을 수 없습니다."),
     INVALID_ENTRY_TOKEN(HttpStatus.UNAUTHORIZED, "ENTRY_TOKEN001", "유효하지 않거나 만료된 entryToken입니다."),
     ENTRY_TOKEN_USER_MISMATCH(HttpStatus.FORBIDDEN, "ENTRY_TOKEN002", "entryToken의 사용자 정보가 일치하지 않습니다."),
-    ENTRY_TOKEN_SCHEDULE_MISMATCH(HttpStatus.FORBIDDEN, "ENTRY_TOKEN003", "entryToken의 회차 정보가 일치하지 않습니다.");
+    ENTRY_TOKEN_SCHEDULE_MISMATCH(HttpStatus.FORBIDDEN, "ENTRY_TOKEN003", "entryToken의 회차 정보가 일치하지 않습니다."),
+    SEAT_SECTION_NOT_FOUND(HttpStatus.NOT_FOUND, "SEAT001", "좌석 구역을 찾을 수 없습니다."),
+    SEAT_NOT_FOUND(HttpStatus.NOT_FOUND, "SEAT002", "좌석을 찾을 수 없습니다."),
+    SEAT_NOT_AVAILABLE(HttpStatus.CONFLICT, "SEAT003", "선택한 좌석 중 이미 선점되었거나 예매된 좌석이 있습니다."),
+    SEAT_HOLD_NOT_FOUND(HttpStatus.NOT_FOUND, "SEAT004", "좌석 선점 정보를 찾을 수 없거나 만료되었습니다."),
+    SEAT_HOLD_ACCESS_DENIED(HttpStatus.FORBIDDEN, "SEAT005", "해당 좌석 선점에 접근할 권한이 없습니다."),
+    SEAT_HOLD_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "SEAT006", "한 번에 선점할 수 있는 좌석 수를 초과했습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
