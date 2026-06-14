@@ -132,6 +132,37 @@ public class Reservation {
         return true;
     }
 
+    /**
+     * 결제 성공을 예매와 포함된 좌석에 최종 반영합니다.
+     */
+    public PaymentResultApplyResult confirmPayment() {
+        if (status == ReservationStatus.CONFIRMED) {
+            return PaymentResultApplyResult.DUPLICATE;
+        }
+        if (status != ReservationStatus.PAYMENT_PROCESSING) {
+            throw new IllegalStateException("결제 처리 중인 예매만 확정할 수 있습니다.");
+        }
+
+        seats.forEach(reservationSeat -> reservationSeat.getSeat().reserve());
+        status = ReservationStatus.CONFIRMED;
+        return PaymentResultApplyResult.APPLIED;
+    }
+
+    /**
+     * 결제 실패를 예매 취소 상태로 반영합니다.
+     */
+    public PaymentResultApplyResult failPayment() {
+        if (status == ReservationStatus.CANCELED) {
+            return PaymentResultApplyResult.DUPLICATE;
+        }
+        if (status != ReservationStatus.PAYMENT_PROCESSING) {
+            throw new IllegalStateException("결제 처리 중인 예매만 결제 실패 처리할 수 있습니다.");
+        }
+
+        status = ReservationStatus.CANCELED;
+        return PaymentResultApplyResult.APPLIED;
+    }
+
     private void addSeat(Seat seat) {
         seats.add(ReservationSeat.create(this, seat, seat.getSection().getPrice()));
     }

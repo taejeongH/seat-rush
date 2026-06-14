@@ -37,6 +37,21 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             @Param("userId") Long userId
     );
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {
+            "user",
+            "seats",
+            "seats.seat"
+    })
+    @Query("""
+            select reservation
+            from Reservation reservation
+            where reservation.id = :reservationId
+            """)
+    Optional<Reservation> findByIdForPaymentResultUpdate(
+            @Param("reservationId") Long reservationId
+    );
+
     @Query(value = """
             SELECT *
             FROM reservations
