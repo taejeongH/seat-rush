@@ -6,22 +6,28 @@ import com.seatrush.ticketservice.domain.reservation.entity.PaymentResultApplyRe
 import com.seatrush.ticketservice.domain.reservation.entity.Reservation;
 import com.seatrush.ticketservice.domain.reservation.event.model.PaymentResultEvent;
 import com.seatrush.ticketservice.domain.reservation.event.model.PaymentResultStatus;
+import com.seatrush.ticketservice.domain.reservation.event.publisher.NotificationEventOutboxWriter;
 import com.seatrush.ticketservice.domain.reservation.repository.ReservationRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 @Service
 public class PaymentResultService {
 
     private final ReservationRepository reservationRepository;
     private final ReservationHoldReleaseService holdReleaseService;
+    private final NotificationEventOutboxWriter notificationEventOutboxWriter;
 
     public PaymentResultService(
             ReservationRepository reservationRepository,
-            ReservationHoldReleaseService holdReleaseService
+            ReservationHoldReleaseService holdReleaseService,
+            NotificationEventOutboxWriter notificationEventOutboxWriter
     ) {
         this.reservationRepository = reservationRepository;
         this.holdReleaseService = holdReleaseService;
+        this.notificationEventOutboxWriter = notificationEventOutboxWriter;
     }
 
     /**
@@ -44,8 +50,29 @@ public class PaymentResultService {
             throw new CustomException(ErrorCode.PAYMENT_RESULT_STATE_CONFLICT, exception);
         }
 
+        if (result == PaymentResultApplyResult.APPLIED) {
+            appendNotificationEvent(reservation, event.status());
+        }
         holdReleaseService.releaseAfterCommit(reservation.getHoldId());
         return result;
+    }
+
+    private void appendNotificationEvent(
+            Reservation reservation,
+            PaymentResultStatus status
+    ) {
+        LocalDateTime occurredAt = LocalDateTime.now();
+        if (status == PaymentResultStatus.SUCCESS) {
+            notificationEventOutboxWriter.appendReservationConfirmed(
+                    reservation,
+                    occurredAt
+            );
+            return;
+        }
+        notificationEventOutboxWriter.appendPaymentFailed(
+                reservation,
+                occurredAt
+        );
     }
 
     private void validateRequiredFields(PaymentResultEvent event) {

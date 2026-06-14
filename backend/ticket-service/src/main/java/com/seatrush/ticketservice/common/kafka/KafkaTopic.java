@@ -6,6 +6,8 @@ public final class KafkaTopic {
     public static final String PAYMENT_REQUEST = "payment-request-v1";
     public static final String PAYMENT_RESULT = "payment-result-v1";
     public static final String PAYMENT_RESULT_DLT = PAYMENT_RESULT + ".DLT";
+    public static final String RESERVATION_CONFIRMED = "reservation-confirmed-v1";
+    public static final String PAYMENT_FAILED = "payment-failed-v1";
 
     private KafkaTopic() {
     }
