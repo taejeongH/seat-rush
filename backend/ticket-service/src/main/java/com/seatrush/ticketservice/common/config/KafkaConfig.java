@@ -48,6 +48,22 @@ public class KafkaConfig {
     }
 
     @Bean
+    public NewTopic reservationConfirmedTopic() {
+        return TopicBuilder.name(KafkaTopic.RESERVATION_CONFIRMED)
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic paymentFailedTopic() {
+        return TopicBuilder.name(KafkaTopic.PAYMENT_FAILED)
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
     public DefaultErrorHandler kafkaErrorHandler(
             KafkaTemplate<String, Object> kafkaTemplate
     ) {
