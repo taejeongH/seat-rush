@@ -32,7 +32,8 @@ public enum ErrorCode {
     RESERVATION_NOT_FOUND(HttpStatus.NOT_FOUND, "RESERVATION001", "예매를 찾을 수 없습니다."),
     RESERVATION_ALREADY_EXISTS(HttpStatus.CONFLICT, "RESERVATION002", "해당 좌석 선점으로 생성된 예매가 이미 존재합니다."),
     INVALID_RESERVATION_STATE(HttpStatus.CONFLICT, "RESERVATION003", "현재 예매 상태에서는 요청을 처리할 수 없습니다."),
-    RESERVATION_SEAT_MISMATCH(HttpStatus.CONFLICT, "RESERVATION004", "좌석 선점 정보와 예매 좌석 정보가 일치하지 않습니다.");
+    RESERVATION_SEAT_MISMATCH(HttpStatus.CONFLICT, "RESERVATION004", "좌석 선점 정보와 예매 좌석 정보가 일치하지 않습니다."),
+    RESERVATION_PAYMENT_EXPIRED(HttpStatus.CONFLICT, "RESERVATION005", "결제 가능 시간이 만료된 예매입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

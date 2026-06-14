@@ -5,8 +5,10 @@ import com.seatrush.ticketservice.common.response.status.ErrorCode;
 import com.seatrush.ticketservice.domain.auth.entity.User;
 import com.seatrush.ticketservice.domain.auth.repository.UserRepository;
 import com.seatrush.ticketservice.domain.reservation.dto.response.ReservationResponseDto;
+import com.seatrush.ticketservice.domain.reservation.dto.response.PaymentRequestResponseDto;
 import com.seatrush.ticketservice.domain.reservation.entity.Reservation;
 import com.seatrush.ticketservice.domain.reservation.entity.ReservationStatus;
+import com.seatrush.ticketservice.domain.reservation.event.publisher.PaymentRequestOutboxWriter;
 import com.seatrush.ticketservice.domain.reservation.repository.ReservationRepository;
 import com.seatrush.ticketservice.domain.seat.entity.Seat;
 import com.seatrush.ticketservice.domain.seat.entity.SeatStatus;
@@ -18,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * 좌석 선점을 기반으로 예매를 생성하고 상태와 만료 시간을 관리합니다.
@@ -29,17 +32,20 @@ public class ReservationService {
     private final UserRepository userRepository;
     private final SeatRepository seatRepository;
     private final ReservationHoldReleaseService holdReleaseService;
+    private final PaymentRequestOutboxWriter paymentRequestOutboxWriter;
 
     public ReservationService(
             ReservationRepository reservationRepository,
             UserRepository userRepository,
             SeatRepository seatRepository,
-            ReservationHoldReleaseService holdReleaseService
+            ReservationHoldReleaseService holdReleaseService,
+            PaymentRequestOutboxWriter paymentRequestOutboxWriter
     ) {
         this.reservationRepository = reservationRepository;
         this.userRepository = userRepository;
         this.seatRepository = seatRepository;
         this.holdReleaseService = holdReleaseService;
+        this.paymentRequestOutboxWriter = paymentRequestOutboxWriter;
     }
 
     /**
@@ -107,6 +113,37 @@ public class ReservationService {
 
         holdReleaseService.releaseAfterCommit(reservation.getHoldId());
         return ReservationResponseDto.from(reservation);
+    }
+
+    /**
+     * 예매를 결제 처리 중 상태로 변경하고 결제 요청 이벤트를 Outbox에 저장합니다.
+     */
+    @Transactional
+    public PaymentRequestResponseDto requestPayment(
+            Long reservationId,
+            Long userId
+    ) {
+        Reservation reservation = reservationRepository
+                .findByIdAndUserIdForUpdate(reservationId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESERVATION_NOT_FOUND));
+        LocalDateTime requestedAt = LocalDateTime.now();
+        String paymentId = UUID.randomUUID().toString();
+
+        boolean requested;
+        try {
+            requested = reservation.requestPayment(paymentId, requestedAt);
+        } catch (IllegalStateException exception) {
+            if (reservation.getStatus() == ReservationStatus.PENDING_PAYMENT
+                    && !reservation.getExpiresAt().isAfter(requestedAt)) {
+                throw new CustomException(ErrorCode.RESERVATION_PAYMENT_EXPIRED, exception);
+            }
+            throw new CustomException(ErrorCode.INVALID_RESERVATION_STATE, exception);
+        }
+
+        if (requested) {
+            paymentRequestOutboxWriter.append(reservation, requestedAt);
+        }
+        return PaymentRequestResponseDto.from(reservation);
     }
 
     private List<Seat> findReservationSeats(SeatHold hold) {

@@ -53,6 +53,9 @@ public class Reservation {
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
 
+    @Column(name = "payment_id", unique = true, length = 36)
+    private String paymentId;
+
     @Version
     @Column(nullable = false)
     private Long version;
@@ -112,6 +115,23 @@ public class Reservation {
         status = ReservationStatus.EXPIRED;
     }
 
+    /**
+     * 결제 대기 예매를 결제 처리 중 상태로 전환하고 결제 식별자를 저장합니다.
+     */
+    public boolean requestPayment(String paymentId, LocalDateTime now) {
+        if (status == ReservationStatus.PAYMENT_PROCESSING) {
+            return false;
+        }
+        validatePendingPayment();
+        if (!expiresAt.isAfter(now)) {
+            throw new IllegalStateException("만료된 예매는 결제를 요청할 수 없습니다.");
+        }
+
+        this.paymentId = paymentId;
+        status = ReservationStatus.PAYMENT_PROCESSING;
+        return true;
+    }
+
     private void addSeat(Seat seat) {
         seats.add(ReservationSeat.create(this, seat, seat.getSection().getPrice()));
     }
@@ -148,6 +168,10 @@ public class Reservation {
 
     public LocalDateTime getExpiresAt() {
         return expiresAt;
+    }
+
+    public String getPaymentId() {
+        return paymentId;
     }
 
     public Long getVersion() {

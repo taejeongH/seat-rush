@@ -8,6 +8,7 @@ import com.seatrush.ticketservice.domain.concert.entity.ConcertSchedule;
 import com.seatrush.ticketservice.domain.reservation.dto.response.ReservationResponseDto;
 import com.seatrush.ticketservice.domain.reservation.entity.Reservation;
 import com.seatrush.ticketservice.domain.reservation.entity.ReservationStatus;
+import com.seatrush.ticketservice.domain.reservation.event.publisher.PaymentRequestOutboxWriter;
 import com.seatrush.ticketservice.domain.reservation.repository.ReservationRepository;
 import com.seatrush.ticketservice.domain.seat.entity.Seat;
 import com.seatrush.ticketservice.domain.seat.entity.SeatSection;
@@ -29,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 /**
@@ -40,6 +42,7 @@ class ReservationServiceTest {
     private UserRepository userRepository;
     private SeatRepository seatRepository;
     private ReservationHoldReleaseService holdReleaseService;
+    private PaymentRequestOutboxWriter paymentRequestOutboxWriter;
     private ReservationService service;
 
     @BeforeEach
@@ -48,11 +51,13 @@ class ReservationServiceTest {
         userRepository = mock(UserRepository.class);
         seatRepository = mock(SeatRepository.class);
         holdReleaseService = mock(ReservationHoldReleaseService.class);
+        paymentRequestOutboxWriter = mock(PaymentRequestOutboxWriter.class);
         service = new ReservationService(
                 reservationRepository,
                 userRepository,
                 seatRepository,
-                holdReleaseService
+                holdReleaseService,
+                paymentRequestOutboxWriter
         );
     }
 
@@ -118,6 +123,45 @@ class ReservationServiceTest {
 
         assertThat(response.status()).isEqualTo(ReservationStatus.CANCELED);
         verify(holdReleaseService).releaseAfterCommit("hold-1");
+    }
+
+    /**
+     * 결제 대기 예매를 처리 중 상태로 변경하고 Outbox 이벤트를 저장합니다.
+     */
+    @Test
+    void requestPaymentAndAppendOutboxEvent() {
+        Reservation reservation = reservation(
+                LocalDateTime.now().plusMinutes(10),
+                ReservationStatus.PENDING_PAYMENT
+        );
+        when(reservationRepository.findByIdAndUserIdForUpdate(100L, 10L))
+                .thenReturn(Optional.of(reservation));
+
+        var response = service.requestPayment(100L, 10L);
+
+        assertThat(response.status()).isEqualTo(ReservationStatus.PAYMENT_PROCESSING);
+        assertThat(response.paymentId()).isNotBlank();
+        verify(paymentRequestOutboxWriter).append(any(Reservation.class), any(LocalDateTime.class));
+    }
+
+    /**
+     * 결제 처리 중 예매의 재요청은 기존 paymentId를 반환하고 이벤트를 추가하지 않습니다.
+     */
+    @Test
+    void returnExistingPaymentRequestIdempotently() {
+        Reservation reservation = reservation(
+                LocalDateTime.now().plusMinutes(10),
+                ReservationStatus.PENDING_PAYMENT
+        );
+        reservation.requestPayment("payment-1", LocalDateTime.now());
+        when(reservationRepository.findByIdAndUserIdForUpdate(100L, 10L))
+                .thenReturn(Optional.of(reservation));
+
+        var response = service.requestPayment(100L, 10L);
+
+        assertThat(response.paymentId()).isEqualTo("payment-1");
+        verify(paymentRequestOutboxWriter, times(0))
+                .append(any(Reservation.class), any(LocalDateTime.class));
     }
 
     private SeatHold hold(List<Long> seatIds) {
