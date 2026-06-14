@@ -69,6 +69,42 @@ class ReservationTest {
         assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.EXPIRED);
     }
 
+    /**
+     * 결제 요청 시 처리 중 상태와 결제 식별자를 저장합니다.
+     */
+    @Test
+    void transitionToPaymentProcessing() {
+        Reservation reservation = createReservation(
+                LocalDateTime.now().plusMinutes(10),
+                new BigDecimal("150000")
+        );
+
+        boolean changed =
+                reservation.requestPayment("payment-1", LocalDateTime.now());
+
+        assertThat(changed).isTrue();
+        assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.PAYMENT_PROCESSING);
+        assertThat(reservation.getPaymentId()).isEqualTo("payment-1");
+    }
+
+    /**
+     * 처리 중인 예매의 결제 재요청은 기존 식별자를 유지합니다.
+     */
+    @Test
+    void keepExistingPaymentIdForRepeatedRequest() {
+        Reservation reservation = createReservation(
+                LocalDateTime.now().plusMinutes(10),
+                new BigDecimal("150000")
+        );
+        reservation.requestPayment("payment-1", LocalDateTime.now());
+
+        boolean changed =
+                reservation.requestPayment("payment-2", LocalDateTime.now());
+
+        assertThat(changed).isFalse();
+        assertThat(reservation.getPaymentId()).isEqualTo("payment-1");
+    }
+
     private Reservation createReservation(
             LocalDateTime expiresAt,
             BigDecimal... prices
