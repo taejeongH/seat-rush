@@ -7,6 +7,7 @@ import com.seatrush.ticketservice.common.response.ApiResponse;
 import com.seatrush.ticketservice.common.response.status.SuccessCode;
 import com.seatrush.ticketservice.domain.reservation.dto.request.ReservationCreateRequestDto;
 import com.seatrush.ticketservice.domain.reservation.dto.response.ReservationResponseDto;
+import com.seatrush.ticketservice.domain.reservation.dto.response.PaymentRequestResponseDto;
 import com.seatrush.ticketservice.domain.reservation.service.ReservationFacade;
 import com.seatrush.ticketservice.domain.reservation.service.ReservationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -83,6 +84,22 @@ public class ReservationController {
         return ApiResponse.onSuccess(
                 SuccessCode.OK,
                 reservationService.cancel(reservationId, userId)
+        );
+    }
+
+    @Operation(
+            summary = "결제 요청",
+            description = "예매를 결제 처리 중 상태로 전환하고 비동기 결제 요청을 접수합니다."
+    )
+    @PostMapping("/{reservationId}/payments")
+    public ResponseEntity<ApiResponse<PaymentRequestResponseDto>> requestPayment(
+            @Positive @PathVariable Long reservationId,
+            @Parameter(hidden = true)
+            @RequestHeader("X-User-Id") Long userId
+    ) {
+        return ApiResponse.onSuccess(
+                SuccessCode.ACCEPTED,
+                reservationService.requestPayment(reservationId, userId)
         );
     }
 }

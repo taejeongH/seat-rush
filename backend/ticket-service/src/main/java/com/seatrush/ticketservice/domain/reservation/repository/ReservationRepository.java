@@ -3,12 +3,14 @@ package com.seatrush.ticketservice.domain.reservation.repository;
 import com.seatrush.ticketservice.domain.reservation.entity.Reservation;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import jakarta.persistence.LockModeType;
 
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
 
@@ -21,6 +23,19 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             "seats.seat.section"
     })
     Optional<Reservation> findByIdAndUserId(Long reservationId, Long userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {"schedule", "user"})
+    @Query("""
+            select reservation
+            from Reservation reservation
+            where reservation.id = :reservationId
+              and reservation.user.id = :userId
+            """)
+    Optional<Reservation> findByIdAndUserIdForUpdate(
+            @Param("reservationId") Long reservationId,
+            @Param("userId") Long userId
+    );
 
     @Query(value = """
             SELECT *
