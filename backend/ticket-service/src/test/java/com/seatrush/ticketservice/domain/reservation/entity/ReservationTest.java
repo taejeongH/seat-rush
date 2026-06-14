@@ -13,6 +13,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -103,6 +105,83 @@ class ReservationTest {
 
         assertThat(changed).isFalse();
         assertThat(reservation.getPaymentId()).isEqualTo("payment-1");
+    }
+
+    /**
+     * 결제 성공 시 예매와 모든 좌석을 최종 확정합니다.
+     */
+    @Test
+    void confirmReservationAndSeatsAfterPaymentSuccess() {
+        Seat seat = seat(mock(ConcertSchedule.class), new BigDecimal("150000"));
+        Reservation reservation = Reservation.create(
+                mock(User.class),
+                seat.getSection().getSchedule(),
+                "hold-1",
+                List.of(seat),
+                LocalDateTime.now().plusMinutes(10)
+        );
+        reservation.requestPayment("payment-1", LocalDateTime.now());
+
+        PaymentResultApplyResult result = reservation.confirmPayment();
+
+        assertThat(result).isEqualTo(PaymentResultApplyResult.APPLIED);
+        assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.CONFIRMED);
+        verify(seat).reserve();
+    }
+
+    /**
+     * 같은 성공 결과를 다시 적용하면 좌석 상태를 다시 변경하지 않습니다.
+     */
+    @Test
+    void ignoreDuplicatePaymentSuccess() {
+        Seat seat = seat(mock(ConcertSchedule.class), new BigDecimal("150000"));
+        Reservation reservation = Reservation.create(
+                mock(User.class),
+                seat.getSection().getSchedule(),
+                "hold-1",
+                List.of(seat),
+                LocalDateTime.now().plusMinutes(10)
+        );
+        reservation.requestPayment("payment-1", LocalDateTime.now());
+        reservation.confirmPayment();
+
+        PaymentResultApplyResult result = reservation.confirmPayment();
+
+        assertThat(result).isEqualTo(PaymentResultApplyResult.DUPLICATE);
+        verify(seat, times(1)).reserve();
+    }
+
+    /**
+     * 결제 실패 시 처리 중 예매를 취소합니다.
+     */
+    @Test
+    void cancelReservationAfterPaymentFailure() {
+        Reservation reservation = createReservation(
+                LocalDateTime.now().plusMinutes(10),
+                new BigDecimal("150000")
+        );
+        reservation.requestPayment("payment-1", LocalDateTime.now());
+
+        PaymentResultApplyResult result = reservation.failPayment();
+
+        assertThat(result).isEqualTo(PaymentResultApplyResult.APPLIED);
+        assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.CANCELED);
+    }
+
+    /**
+     * 확정된 예매에 실패 결과를 적용해 상태를 역전할 수 없습니다.
+     */
+    @Test
+    void rejectPaymentFailureAfterConfirmation() {
+        Reservation reservation = createReservation(
+                LocalDateTime.now().plusMinutes(10),
+                new BigDecimal("150000")
+        );
+        reservation.requestPayment("payment-1", LocalDateTime.now());
+        reservation.confirmPayment();
+
+        assertThatThrownBy(reservation::failPayment)
+                .isInstanceOf(IllegalStateException.class);
     }
 
     private Reservation createReservation(

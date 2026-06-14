@@ -37,6 +37,16 @@ public class Seat {
     protected Seat() {
     }
 
+    /**
+     * 결제가 성공한 좌석을 최종 예약 상태로 변경합니다.
+     */
+    public void reserve() {
+        if (status != SeatStatus.AVAILABLE) {
+            throw new IllegalStateException("예약 가능한 좌석만 확정할 수 있습니다.");
+        }
+        status = SeatStatus.RESERVED;
+    }
+
     public Long getId() {
         return id;
     }
