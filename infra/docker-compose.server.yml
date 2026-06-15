@@ -25,14 +25,7 @@ services:
       - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
       - certbot-conf:/etc/letsencrypt:ro
       - certbot-www:/var/www/certbot:ro
-    command: >
-      /bin/sh -c '
-        while :; do
-          sleep 6h & wait $$!;
-          nginx -s reload;
-        done &
-        nginx -g "daemon off;"
-      '
+    command: ["nginx", "-g", "daemon off;"]
     depends_on:
       - frontend
       - api-gateway
