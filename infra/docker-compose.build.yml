@@ -1,0 +1,26 @@
+services:
+  frontend:
+    build:
+      context: ../frontend
+      args:
+        VITE_API_BASE_URL: ""
+
+  api-gateway:
+    build:
+      context: ../backend/api-gateway
+
+  ticket-service:
+    build:
+      context: ../backend/ticket-service
+
+  queue-service:
+    build:
+      context: ../backend/queue-service
+
+  payment-service:
+    build:
+      context: ../backend/payment-service
+
+  notification-consumer:
+    build:
+      context: ../backend/notification-consumer
