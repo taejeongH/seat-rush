@@ -40,6 +40,17 @@ compose --profile tools run --rm certificate-bootstrap -c "
 
 compose up -d reverse-proxy
 
+attempt=0
+until curl --silent --show-error --output /dev/null http://127.0.0.1/; do
+  attempt=$((attempt + 1))
+  if [ "$attempt" -ge 30 ]; then
+    echo "Reverse proxy did not become ready."
+    compose logs --tail=100 reverse-proxy
+    exit 1
+  fi
+  sleep 1
+done
+
 compose --profile tools run --rm certificate-bootstrap \
   -c "rm -rf /etc/letsencrypt/live/$DOMAIN"
 
