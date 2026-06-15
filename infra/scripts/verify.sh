@@ -2,7 +2,7 @@
 set -eu
 
 if [ "$#" -ne 1 ]; then
-  echo "사용법: ./infra/scripts/verify.sh https://seat-rush.example.com"
+  echo "사용법: sh infra/scripts/verify.sh https://seat-rush.example.com"
   exit 1
 fi
 

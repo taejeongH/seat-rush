@@ -2,3 +2,4 @@
 *.env
 *.pem
 infra/backups/
+infra/.env.production

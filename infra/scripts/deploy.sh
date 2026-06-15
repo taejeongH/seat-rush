@@ -3,5 +3,5 @@ set -eu
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 
-"$ROOT_DIR/infra/scripts/deploy-infra.sh"
-"$ROOT_DIR/infra/scripts/deploy-server.sh"
+sh "$ROOT_DIR/infra/scripts/deploy-infra.sh"
+sh "$ROOT_DIR/infra/scripts/deploy-server-local-build.sh"

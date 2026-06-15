@@ -73,10 +73,7 @@ services:
     entrypoint: /bin/sh
 
   frontend:
-    build:
-      context: ../frontend
-      args:
-        VITE_API_BASE_URL: ""
+    image: ${GHCR_NAMESPACE:-ghcr.io/taejeongh}/seat-rush-frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     mem_limit: 128m
     expose:
@@ -86,8 +83,7 @@ services:
 
   api-gateway:
     <<: *spring-service
-    build:
-      context: ../backend/api-gateway
+    image: ${GHCR_NAMESPACE:-ghcr.io/taejeongh}/seat-rush-api-gateway:${IMAGE_TAG:-latest}
     mem_limit: 384m
     environment:
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=30
@@ -110,8 +106,7 @@ services:
 
   ticket-service:
     <<: *spring-service
-    build:
-      context: ../backend/ticket-service
+    image: ${GHCR_NAMESPACE:-ghcr.io/taejeongh}/seat-rush-ticket-service:${IMAGE_TAG:-latest}
     mem_limit: 768m
     environment:
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=30
@@ -134,8 +129,7 @@ services:
 
   queue-service:
     <<: *spring-service
-    build:
-      context: ../backend/queue-service
+    image: ${GHCR_NAMESPACE:-ghcr.io/taejeongh}/seat-rush-queue-service:${IMAGE_TAG:-latest}
     mem_limit: 512m
     environment:
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=30
@@ -154,8 +148,7 @@ services:
 
   payment-service:
     <<: *spring-service
-    build:
-      context: ../backend/payment-service
+    image: ${GHCR_NAMESPACE:-ghcr.io/taejeongh}/seat-rush-payment-service:${IMAGE_TAG:-latest}
     mem_limit: 512m
     environment:
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=30
@@ -168,8 +161,7 @@ services:
 
   notification-consumer:
     <<: *spring-service
-    build:
-      context: ../backend/notification-consumer
+    image: ${GHCR_NAMESPACE:-ghcr.io/taejeongh}/seat-rush-notification-consumer:${IMAGE_TAG:-latest}
     mem_limit: 384m
     environment:
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=30

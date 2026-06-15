@@ -20,7 +20,7 @@ docker compose -f infra/docker-compose.local.yml up -d
 
 ```bash
 cp infra/.env.production.example infra/.env.production
-./infra/scripts/deploy.sh
+sh infra/scripts/deploy.sh
 ```
 
 운영 Compose는 변경 주기에 따라 분리되어 있다.
@@ -33,11 +33,11 @@ cp infra/.env.production.example infra/.env.production
 일반적인 애플리케이션 배포에서는 인프라를 재시작하지 않고 서버만 갱신한다.
 
 ```bash
-./infra/scripts/deploy-server.sh
+sh infra/scripts/deploy-server.sh
 ```
 
 EC2를 삭제하기 전 MySQL 데이터를 백업한다.
 
 ```bash
-./infra/scripts/backup-mysql.sh
+sh infra/scripts/backup-mysql.sh
 ```
