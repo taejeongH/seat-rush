@@ -1,0 +1,2 @@
+jwt:
+  public-key-location: classpath:cert/test-public-key.txt
