@@ -4,6 +4,7 @@ import com.seatrush.paymentservice.common.exception.CustomException;
 import com.seatrush.paymentservice.common.response.status.ErrorCode;
 import com.seatrush.paymentservice.domain.event.model.PaymentResultEvent;
 import com.seatrush.paymentservice.domain.event.publisher.PaymentResultEventPublisher;
+import com.seatrush.paymentservice.domain.payment.dto.response.PaymentPreparationStatus;
 import com.seatrush.paymentservice.domain.payment.dto.response.PaymentResponseDto;
 import com.seatrush.paymentservice.domain.payment.entity.Payment;
 import com.seatrush.paymentservice.domain.payment.entity.PaymentStatus;
@@ -117,6 +118,44 @@ class PaymentServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting(exception -> ((CustomException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_REQUEST);
+    }
+
+    /**
+     * 결제 요청 이벤트가 아직 소비되지 않았으면 준비 중 상태를 반환합니다.
+     */
+    @Test
+    void returnProcessingBeforePaymentEventIsConsumed() {
+        when(paymentRepository.findById("payment-1")).thenReturn(Optional.empty());
+
+        var response = service.getPreparationStatus("payment-1", 10L);
+
+        assertThat(response.paymentId()).isEqualTo("payment-1");
+        assertThat(response.status()).isEqualTo(PaymentPreparationStatus.PROCESSING);
+    }
+
+    /**
+     * 결제 데이터가 생성되면 Mock 결제를 처리할 수 있는 준비 완료 상태를 반환합니다.
+     */
+    @Test
+    void returnReadyAfterPaymentEventIsConsumed() {
+        when(paymentRepository.findById("payment-1")).thenReturn(Optional.of(payment()));
+
+        var response = service.getPreparationStatus("payment-1", 10L);
+
+        assertThat(response.status()).isEqualTo(PaymentPreparationStatus.READY);
+    }
+
+    /**
+     * 다른 사용자의 결제 준비 상태 조회를 거부합니다.
+     */
+    @Test
+    void rejectPreparationStatusForDifferentUser() {
+        when(paymentRepository.findById("payment-1")).thenReturn(Optional.of(payment()));
+
+        assertThatThrownBy(() -> service.getPreparationStatus("payment-1", 20L))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.PAYMENT_ACCESS_DENIED);
     }
 
     /**
