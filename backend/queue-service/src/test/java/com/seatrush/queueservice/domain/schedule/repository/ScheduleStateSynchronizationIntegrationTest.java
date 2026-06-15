@@ -15,6 +15,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ScheduleStateSynchronizationIntegrationTest {
 
     private static final Long SCHEDULE_ID = 9_999_998L;
+    private static final ZoneId SCHEDULE_ZONE = ZoneId.of("Asia/Seoul");
 
     @Autowired
     private ScheduleStateRedisRepository scheduleStateRepository;
@@ -118,8 +120,8 @@ class ScheduleStateSynchronizationIntegrationTest {
     void upcomingScheduleIsAcceptedDuringBookingPeriod() {
         scheduleStateRepository.synchronize(createEvent(
                 ScheduleStatus.UPCOMING,
-                LocalDateTime.now().minusMinutes(1),
-                LocalDateTime.now().plusHours(1),
+                now().minusMinutes(1),
+                now().plusHours(1),
                 1
         ));
 
@@ -133,8 +135,8 @@ class ScheduleStateSynchronizationIntegrationTest {
     void scheduleIsRejectedBeforeBookingOpenTime() {
         scheduleStateRepository.synchronize(createEvent(
                 ScheduleStatus.UPCOMING,
-                LocalDateTime.now().plusHours(1),
-                LocalDateTime.now().plusHours(2),
+                now().plusHours(1),
+                now().plusHours(2),
                 1
         ));
 
@@ -148,8 +150,8 @@ class ScheduleStateSynchronizationIntegrationTest {
     void scheduleIsRejectedAfterBookingCloseTime() {
         scheduleStateRepository.synchronize(createEvent(
                 ScheduleStatus.BOOKING_OPEN,
-                LocalDateTime.now().minusHours(2),
-                LocalDateTime.now().minusHours(1),
+                now().minusHours(2),
+                now().minusHours(1),
                 1
         ));
 
@@ -163,8 +165,8 @@ class ScheduleStateSynchronizationIntegrationTest {
     void canceledScheduleIsRejectedDuringBookingPeriod() {
         scheduleStateRepository.synchronize(createEvent(
                 ScheduleStatus.CANCELED,
-                LocalDateTime.now().minusMinutes(1),
-                LocalDateTime.now().plusHours(1),
+                now().minusMinutes(1),
+                now().plusHours(1),
                 1
         ));
 
@@ -174,8 +176,8 @@ class ScheduleStateSynchronizationIntegrationTest {
     private ScheduleStatusEvent createEvent(ScheduleStatus status, long version) {
         return createEvent(
                 status,
-                LocalDateTime.now().minusMinutes(1),
-                LocalDateTime.now().plusHours(1),
+                now().minusMinutes(1),
+                now().plusHours(1),
                 version
         );
     }
@@ -203,5 +205,9 @@ class ScheduleStateSynchronizationIntegrationTest {
                 .isInstanceOf(CustomException.class)
                 .extracting(exception -> ((CustomException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.QUEUE_NOT_OPEN);
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(SCHEDULE_ZONE);
     }
 }

@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Set;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -31,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class QueueConcurrencyIntegrationTest {
 
     private static final Long SCHEDULE_ID = 9_999_999L;
+    private static final ZoneId SCHEDULE_ZONE = ZoneId.of("Asia/Seoul");
 
     @Autowired
     private QueueService queueService;
@@ -48,8 +50,8 @@ class QueueConcurrencyIntegrationTest {
                 ScheduleEventType.SYNCHRONIZED,
                 SCHEDULE_ID,
                 ScheduleStatus.BOOKING_OPEN,
-                LocalDateTime.now().minusMinutes(1),
-                LocalDateTime.now().plusHours(1),
+                LocalDateTime.now(SCHEDULE_ZONE).minusMinutes(1),
+                LocalDateTime.now(SCHEDULE_ZONE).plusHours(1),
                 1,
                 Instant.now()
         ));

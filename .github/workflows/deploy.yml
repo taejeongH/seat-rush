@@ -20,15 +20,55 @@ jobs:
   backend-test:
     name: Test ${{ matrix.service }}
     runs-on: ubuntu-latest
+    env:
+      DB_URL: jdbc:mysql://127.0.0.1:3306/${{ matrix.database }}?sslMode=DISABLED&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      SEAT_REDIS_HOST: 127.0.0.1
+      SEAT_REDIS_PORT: 6380
+      QUEUE_REDIS_HOST: 127.0.0.1
+      QUEUE_REDIS_PORT: 6379
+      NOTIFICATION_REDIS_HOST: 127.0.0.1
+      NOTIFICATION_REDIS_PORT: 6381
+      SPRING_KAFKA_LISTENER_AUTO_STARTUP: false
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: ${{ matrix.database }}
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+          - 6380:6379
+          - 6381:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=10
     strategy:
       fail-fast: false
       matrix:
-        service:
-          - api-gateway
-          - ticket-service
-          - queue-service
-          - payment-service
-          - notification-consumer
+        include:
+          - service: api-gateway
+            database: seat_rush
+          - service: ticket-service
+            database: seat_rush
+          - service: queue-service
+            database: seat_rush
+          - service: payment-service
+            database: seat_rush_payment
+          - service: notification-consumer
+            database: seat_rush
     defaults:
       run:
         working-directory: backend/${{ matrix.service }}
@@ -43,6 +83,31 @@ jobs:
           java-version: "21"
           cache: gradle
           cache-dependency-path: backend/${{ matrix.service }}/**/*.gradle*
+
+      - name: Generate Ticket Service test keys
+        if: matrix.service == 'ticket-service'
+        run: |
+          mkdir -p src/main/resources/cert
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
+            -out src/main/resources/cert/private-key.pem
+          openssl rsa -pubout \
+            -in src/main/resources/cert/private-key.pem \
+            -out src/main/resources/cert/public-key.pem
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
+            -out /tmp/entry-token-private-key.pem
+          openssl rsa -pubout \
+            -in /tmp/entry-token-private-key.pem \
+            -out src/main/resources/cert/entry-token-public-key.pem
+
+      - name: Generate Queue Service test keys
+        if: matrix.service == 'queue-service'
+        run: |
+          mkdir -p src/main/resources/cert
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
+            -out src/main/resources/cert/entry-token-private-key.pem
+          openssl rsa -pubout \
+            -in src/main/resources/cert/entry-token-private-key.pem \
+            -out src/main/resources/cert/entry-token-public-key.pem
 
       - name: Test
         run: |
