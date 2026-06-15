@@ -25,34 +25,32 @@ compose() {
 }
 
 if compose --profile tools run --rm certificate-bootstrap \
-  -c "test -f /etc/letsencrypt/renewal/$DOMAIN.conf"; then
+  -c "test -f /etc/letsencrypt/renewal/$DOMAIN.conf &&
+      test -f /etc/letsencrypt/live/$DOMAIN/fullchain.pem &&
+      test -f /etc/letsencrypt/live/$DOMAIN/privkey.pem"; then
+  compose up -d reverse-proxy
   exit 0
 fi
 
-compose --profile tools run --rm certificate-bootstrap -c "
-  apk add --no-cache openssl >/dev/null &&
-  mkdir -p /etc/letsencrypt/live/$DOMAIN &&
-  openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
-    -keyout /etc/letsencrypt/live/$DOMAIN/privkey.pem \
-    -out /etc/letsencrypt/live/$DOMAIN/fullchain.pem \
-    -subj /CN=localhost
-"
-
-compose up -d reverse-proxy
+compose stop reverse-proxy >/dev/null 2>&1 || true
+compose --profile tools rm -sf certificate-proxy >/dev/null 2>&1 || true
+compose --profile tools up -d certificate-proxy
 
 attempt=0
 until curl --silent --show-error --output /dev/null http://127.0.0.1/; do
   attempt=$((attempt + 1))
   if [ "$attempt" -ge 30 ]; then
-    echo "Reverse proxy did not become ready."
-    compose logs --tail=100 reverse-proxy
+    echo "Certificate proxy did not become ready."
+    compose --profile tools logs --tail=100 certificate-proxy
     exit 1
   fi
   sleep 1
 done
 
 compose --profile tools run --rm certificate-bootstrap \
-  -c "rm -rf /etc/letsencrypt/live/$DOMAIN"
+  -c "rm -rf /etc/letsencrypt/live/$DOMAIN
+      /etc/letsencrypt/archive/$DOMAIN
+      /etc/letsencrypt/renewal/$DOMAIN.conf"
 
 compose run --rm --entrypoint certbot certbot \
   certonly \
@@ -64,4 +62,5 @@ compose run --rm --entrypoint certbot certbot \
   --force-renewal \
   -d "$DOMAIN"
 
-compose exec reverse-proxy nginx -s reload
+compose --profile tools rm -sf certificate-proxy
+compose up -d reverse-proxy certbot
