@@ -32,6 +32,21 @@ services:
     networks:
       - seat-rush
 
+  certificate-proxy:
+    image: nginx:1.27-alpine
+    profiles:
+      - tools
+    environment:
+      DOMAIN: ${DOMAIN}
+      NGINX_ENVSUBST_FILTER: ^DOMAIN$
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/certificate.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - certbot-www:/var/www/certbot:ro
+    networks:
+      - seat-rush
+
   certbot:
     image: certbot/certbot:v4.0.0
     restart: unless-stopped
