@@ -1,0 +1,120 @@
+name: seat-rush-infra
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    mem_limit: 768m
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --innodb-buffer-pool-size=256M
+      - --max-connections=150
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TICKET_DB_NAME: ${TICKET_DB_NAME}
+      TICKET_DB_USERNAME: ${TICKET_DB_USERNAME}
+      TICKET_DB_PASSWORD: ${TICKET_DB_PASSWORD}
+      PAYMENT_DB_NAME: ${PAYMENT_DB_NAME}
+      PAYMENT_DB_USERNAME: ${PAYMENT_DB_USERNAME}
+      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD}
+      TZ: Asia/Seoul
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./mysql/init-databases.sh:/docker-entrypoint-initdb.d/01-init-databases.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -h localhost -u root --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks:
+      - seat-rush
+
+  queue-redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    mem_limit: 256m
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - queue-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - seat-rush
+
+  seat-redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    mem_limit: 256m
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - seat-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - seat-rush
+
+  notification-redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    mem_limit: 256m
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - notification-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - seat-rush
+
+  kafka:
+    image: apache/kafka:3.9.0
+    restart: unless-stopped
+    mem_limit: 768m
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:29092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: -Xms512m -Xmx512m
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 40s
+    networks:
+      - seat-rush
+
+networks:
+  seat-rush:
+    name: seat-rush-production-network
+    driver: bridge
+
+volumes:
+  mysql-data:
+  queue-redis-data:
+  seat-redis-data:
+  notification-redis-data:
+  kafka-data:

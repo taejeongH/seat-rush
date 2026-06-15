@@ -1,38 +1,43 @@
-# Seat Rush 로컬 인프라
+# Seat Rush 인프라
 
-로컬 개발에 필요한 Redis, Kafka, Kafka UI를 실행합니다.
-
-## 구성 서비스
-
-| 서비스 | 로컬 접속 주소 | 컨테이너 내부 주소 |
-| --- | --- | --- |
-| Queue Redis | `localhost:6379` | `queue-redis:6379` |
-| Seat Redis | `localhost:6380` | `seat-redis:6379` |
-| Kafka | `localhost:9092` | `kafka:29092` |
-| Kafka UI | `http://localhost:8089` | `kafka-ui:8080` |
-
-## 실행
+## 로컬 실행
 
 ```powershell
 docker compose -f infra/docker-compose.local.yml up -d
 ```
 
-## 상태 확인
+| 서비스 | 호스트 주소 |
+| --- | --- |
+| Queue Redis | `localhost:6379` |
+| Seat Redis | `localhost:6380` |
+| Notification Redis | `localhost:6381` |
+| Kafka | `localhost:9092` |
+| Kafka UI | `http://localhost:8089` |
 
-```powershell
-docker compose -f infra/docker-compose.local.yml ps
+## 운영 배포
+
+운영 구성과 AWS 설정은 [배포 문서](../docs/deployment.md)를 참고한다.
+
+```bash
+cp infra/.env.production.example infra/.env.production
+./infra/scripts/deploy.sh
 ```
 
-## 종료
+운영 Compose는 변경 주기에 따라 분리되어 있다.
 
-```powershell
-docker compose -f infra/docker-compose.local.yml down
+| 파일 | 구성 |
+| --- | --- |
+| `docker-compose.infra.yml` | MySQL, Kafka, Redis |
+| `docker-compose.server.yml` | 프론트엔드, Gateway, Spring 서비스, Nginx, Certbot |
+
+일반적인 애플리케이션 배포에서는 인프라를 재시작하지 않고 서버만 갱신한다.
+
+```bash
+./infra/scripts/deploy-server.sh
 ```
 
-볼륨까지 삭제하려면 다음 명령을 사용합니다.
+EC2를 삭제하기 전 MySQL 데이터를 백업한다.
 
-```powershell
-docker compose -f infra/docker-compose.local.yml down -v
+```bash
+./infra/scripts/backup-mysql.sh
 ```
-
-Queue Service는 `QUEUE_REDIS_HOST`, `QUEUE_REDIS_PORT`를 사용하고 Ticket Service는 `SEAT_REDIS_HOST`, `SEAT_REDIS_PORT`를 사용합니다.
