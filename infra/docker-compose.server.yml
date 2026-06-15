@@ -1,0 +1,181 @@
+name: seat-rush-server
+
+x-spring-service: &spring-service
+  restart: unless-stopped
+  networks:
+    - seat-rush
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+services:
+  reverse-proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    mem_limit: 128m
+    environment:
+      DOMAIN: ${DOMAIN}
+      NGINX_ENVSUBST_FILTER: ^DOMAIN$
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - certbot-conf:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
+    command: >
+      /bin/sh -c '
+        while :; do
+          sleep 6h & wait $$!;
+          nginx -s reload;
+        done &
+        nginx -g "daemon off;"
+      '
+    depends_on:
+      - frontend
+      - api-gateway
+    networks:
+      - seat-rush
+
+  certbot:
+    image: certbot/certbot:v4.0.0
+    restart: unless-stopped
+    volumes:
+      - certbot-conf:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: >
+      /bin/sh -c '
+        trap exit TERM;
+        while :; do
+          certbot renew --webroot -w /var/www/certbot --quiet;
+          sleep 12h & wait $$!;
+        done
+      '
+    networks:
+      - seat-rush
+
+  certificate-bootstrap:
+    image: alpine:3.21
+    profiles:
+      - tools
+    volumes:
+      - certbot-conf:/etc/letsencrypt
+    entrypoint: /bin/sh
+
+  frontend:
+    build:
+      context: ../frontend
+      args:
+        VITE_API_BASE_URL: ""
+    restart: unless-stopped
+    mem_limit: 128m
+    expose:
+      - "80"
+    networks:
+      - seat-rush
+
+  api-gateway:
+    <<: *spring-service
+    build:
+      context: ../backend/api-gateway
+    mem_limit: 384m
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=30
+      FRONTEND_URL: https://${DOMAIN}
+      TICKET_SERVICE_URL: http://ticket-service:8081
+      QUEUE_SERVICE_URL: http://queue-service:8082
+      PAYMENT_SERVICE_URL: http://payment-service:8083
+      JWT_PUBLIC_KEY_LOCATION: file:/run/secrets/access-token-public-key.pem
+    volumes:
+      - ./secrets/access-token-public-key.pem:/run/secrets/access-token-public-key.pem:ro
+    expose:
+      - "8080"
+    depends_on:
+      ticket-service:
+        condition: service_started
+      queue-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+
+  ticket-service:
+    <<: *spring-service
+    build:
+      context: ../backend/ticket-service
+    mem_limit: 768m
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=30
+      DB_URL: jdbc:mysql://mysql:3306/${TICKET_DB_NAME}?sslMode=DISABLED&serverTimezone=Asia/Seoul
+      DB_USERNAME: ${TICKET_DB_USERNAME}
+      DB_PASSWORD: ${TICKET_DB_PASSWORD}
+      SEAT_REDIS_HOST: seat-redis
+      SEAT_REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JWT_PRIVATE_KEY_LOCATION: file:/run/secrets/access-token-private-key.pem
+      JWT_PUBLIC_KEY_LOCATION: file:/run/secrets/access-token-public-key.pem
+      ENTRY_TOKEN_PUBLIC_KEY_LOCATION: file:/run/secrets/entry-token-public-key.pem
+      JWT_ACCESS_TOKEN_EXPIRATION_SECONDS: ${JWT_ACCESS_TOKEN_EXPIRATION_SECONDS:-3600}
+    volumes:
+      - ./secrets/access-token-private-key.pem:/run/secrets/access-token-private-key.pem:ro
+      - ./secrets/access-token-public-key.pem:/run/secrets/access-token-public-key.pem:ro
+      - ./secrets/entry-token-public-key.pem:/run/secrets/entry-token-public-key.pem:ro
+    expose:
+      - "8081"
+
+  queue-service:
+    <<: *spring-service
+    build:
+      context: ../backend/queue-service
+    mem_limit: 512m
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=30
+      QUEUE_REDIS_HOST: queue-redis
+      QUEUE_REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      ENTRY_TOKEN_PRIVATE_KEY_LOCATION: file:/run/secrets/entry-token-private-key.pem
+      ENTRY_TOKEN_PUBLIC_KEY_LOCATION: file:/run/secrets/entry-token-public-key.pem
+      ENTRY_TOKEN_TTL: ${ENTRY_TOKEN_TTL:-10m}
+      QUEUE_ADMISSION_CAPACITY: ${QUEUE_ADMISSION_CAPACITY:-100}
+    volumes:
+      - ./secrets/entry-token-private-key.pem:/run/secrets/entry-token-private-key.pem:ro
+      - ./secrets/entry-token-public-key.pem:/run/secrets/entry-token-public-key.pem:ro
+    expose:
+      - "8082"
+
+  payment-service:
+    <<: *spring-service
+    build:
+      context: ../backend/payment-service
+    mem_limit: 512m
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=30
+      DB_URL: jdbc:mysql://mysql:3306/${PAYMENT_DB_NAME}?sslMode=DISABLED&serverTimezone=Asia/Seoul
+      DB_USERNAME: ${PAYMENT_DB_USERNAME}
+      DB_PASSWORD: ${PAYMENT_DB_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    expose:
+      - "8083"
+
+  notification-consumer:
+    <<: *spring-service
+    build:
+      context: ../backend/notification-consumer
+    mem_limit: 384m
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=30
+      NOTIFICATION_REDIS_HOST: notification-redis
+      NOTIFICATION_REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    expose:
+      - "8084"
+
+networks:
+  seat-rush:
+    name: seat-rush-production-network
+    external: true
+
+volumes:
+  certbot-conf:
+  certbot-www:
