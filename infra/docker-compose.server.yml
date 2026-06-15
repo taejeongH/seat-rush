@@ -115,7 +115,7 @@ services:
     mem_limit: 768m
     environment:
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=30
-      DB_URL: jdbc:mysql://mysql:3306/${TICKET_DB_NAME}?sslMode=DISABLED&serverTimezone=Asia/Seoul
+      DB_URL: jdbc:mysql://mysql:3306/${TICKET_DB_NAME}?sslMode=DISABLED&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
       DB_USERNAME: ${TICKET_DB_USERNAME}
       DB_PASSWORD: ${TICKET_DB_PASSWORD}
       SEAT_REDIS_HOST: seat-redis
@@ -159,7 +159,7 @@ services:
     mem_limit: 512m
     environment:
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=30
-      DB_URL: jdbc:mysql://mysql:3306/${PAYMENT_DB_NAME}?sslMode=DISABLED&serverTimezone=Asia/Seoul
+      DB_URL: jdbc:mysql://mysql:3306/${PAYMENT_DB_NAME}?sslMode=DISABLED&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
       DB_USERNAME: ${PAYMENT_DB_USERNAME}
       DB_PASSWORD: ${PAYMENT_DB_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
