@@ -5,6 +5,23 @@ spring:
     gateway:
       server:
         webflux:
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowed-origins:
+                  - ${FRONTEND_URL:http://localhost:5173}
+                  - http://127.0.0.1:5173
+                allowed-methods:
+                  - GET
+                  - POST
+                  - PATCH
+                  - DELETE
+                  - OPTIONS
+                allowed-headers:
+                  - Authorization
+                  - Content-Type
+                  - X-Entry-Token
+                allow-credentials: true
           routes:
             - id: queue-service
               uri: ${QUEUE_SERVICE_URL:http://localhost:8082}
