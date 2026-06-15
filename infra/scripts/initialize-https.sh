@@ -48,8 +48,9 @@ until curl --silent --show-error --output /dev/null http://127.0.0.1/; do
 done
 
 compose --profile tools run --rm certificate-bootstrap \
-  -c "rm -rf /etc/letsencrypt/live/$DOMAIN
-      /etc/letsencrypt/archive/$DOMAIN
+  -c "rm -rf \
+      /etc/letsencrypt/live/$DOMAIN \
+      /etc/letsencrypt/archive/$DOMAIN \
       /etc/letsencrypt/renewal/$DOMAIN.conf"
 
 compose run --rm --entrypoint certbot certbot \
