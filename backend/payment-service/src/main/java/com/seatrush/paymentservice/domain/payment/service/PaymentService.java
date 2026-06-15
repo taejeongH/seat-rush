@@ -4,6 +4,7 @@ import com.seatrush.paymentservice.common.exception.CustomException;
 import com.seatrush.paymentservice.common.response.status.ErrorCode;
 import com.seatrush.paymentservice.domain.event.model.PaymentResultEvent;
 import com.seatrush.paymentservice.domain.event.publisher.PaymentResultEventPublisher;
+import com.seatrush.paymentservice.domain.payment.dto.response.PaymentPreparationResponseDto;
 import com.seatrush.paymentservice.domain.payment.dto.response.PaymentResponseDto;
 import com.seatrush.paymentservice.domain.payment.entity.Payment;
 import com.seatrush.paymentservice.domain.payment.entity.PaymentStatus;
@@ -86,6 +87,22 @@ public class PaymentService {
     }
 
     /**
+     * Kafka 결제 요청 이벤트의 소비 여부를 기준으로 결제 준비 상태를 조회합니다.
+     */
+    @Transactional(readOnly = true)
+    public PaymentPreparationResponseDto getPreparationStatus(
+            String paymentId,
+            Long userId
+    ) {
+        return paymentRepository.findById(paymentId)
+                .map(payment -> {
+                    validateOwner(payment, userId);
+                    return PaymentPreparationResponseDto.from(payment);
+                })
+                .orElseGet(() -> PaymentPreparationResponseDto.processing(paymentId));
+    }
+
+    /**
      * 결제 행을 잠근 뒤 Mock 성공·실패 결과를 한 번만 반영하고 이벤트를 등록합니다.
      */
     @Transactional
@@ -100,9 +117,7 @@ public class PaymentService {
 
         Payment payment = paymentRepository.findByIdForUpdate(paymentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
-        if (!payment.getUserId().equals(userId)) {
-            throw new CustomException(ErrorCode.PAYMENT_ACCESS_DENIED);
-        }
+        validateOwner(payment, userId);
 
         boolean changed;
         try {
@@ -115,5 +130,11 @@ public class PaymentService {
             eventPublisher.publishAfterCommit(PaymentResultEvent.from(payment));
         }
         return PaymentResponseDto.from(payment);
+    }
+
+    private void validateOwner(Payment payment, Long userId) {
+        if (!payment.getUserId().equals(userId)) {
+            throw new CustomException(ErrorCode.PAYMENT_ACCESS_DENIED);
+        }
     }
 }
