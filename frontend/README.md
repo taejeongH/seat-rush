@@ -18,8 +18,12 @@ npm run dev
 API Gateway 주소를 변경할 때 `.env.local`에 다음 값을 설정합니다.
 
 ```text
-VITE_API_BASE_URL=http://localhost:8080
+VITE_API_BASE_URL=
+VITE_API_PROXY_TARGET=https://54-116-230-157.sslip.io
+VITE_VIRTUAL_USER_GENERATOR_URL=http://localhost:8085
 ```
+
+로컬 개발에서는 `VITE_API_BASE_URL`을 비워두고 Vite proxy로 배포 Gateway에 연결합니다.
 
 ## 주요 흐름
 
