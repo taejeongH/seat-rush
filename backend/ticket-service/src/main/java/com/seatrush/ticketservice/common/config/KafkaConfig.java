@@ -64,6 +64,14 @@ public class KafkaConfig {
     }
 
     @Bean
+    public NewTopic entrySlotReleaseTopic() {
+        return TopicBuilder.name(KafkaTopic.ENTRY_SLOT_RELEASE)
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
     public DefaultErrorHandler kafkaErrorHandler(
             KafkaTemplate<String, Object> kafkaTemplate
     ) {

@@ -5,6 +5,8 @@ import com.seatrush.ticketservice.domain.concert.entity.ConcertSchedule;
 import com.seatrush.ticketservice.domain.reservation.config.ReservationProperties;
 import com.seatrush.ticketservice.domain.reservation.entity.Reservation;
 import com.seatrush.ticketservice.domain.reservation.entity.ReservationStatus;
+import com.seatrush.ticketservice.domain.reservation.event.model.EntrySlotReleaseReason;
+import com.seatrush.ticketservice.domain.reservation.event.publisher.EntrySlotReleaseOutboxWriter;
 import com.seatrush.ticketservice.domain.reservation.repository.ReservationRepository;
 import com.seatrush.ticketservice.domain.seat.entity.Seat;
 import com.seatrush.ticketservice.domain.seat.entity.SeatSection;
@@ -33,9 +35,12 @@ class ReservationExpirationServiceTest {
         ReservationRepository repository = mock(ReservationRepository.class);
         ReservationHoldReleaseService holdReleaseService =
                 mock(ReservationHoldReleaseService.class);
+        EntrySlotReleaseOutboxWriter entrySlotReleaseOutboxWriter =
+                mock(EntrySlotReleaseOutboxWriter.class);
         ReservationExpirationService service = new ReservationExpirationService(
                 repository,
                 holdReleaseService,
+                entrySlotReleaseOutboxWriter,
                 new ReservationProperties(Duration.ofMinutes(10), 100)
         );
         LocalDateTime now = LocalDateTime.now();
@@ -48,6 +53,11 @@ class ReservationExpirationServiceTest {
         assertThat(expiredCount).isEqualTo(1);
         assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.EXPIRED);
         verify(holdReleaseService).releaseAfterCommit("hold-1");
+        verify(entrySlotReleaseOutboxWriter).append(
+                reservation,
+                EntrySlotReleaseReason.RESERVATION_EXPIRED,
+                now
+        );
     }
 
     private Reservation expiredReservation(LocalDateTime expiresAt) {
@@ -62,6 +72,7 @@ class ReservationExpirationServiceTest {
                 user,
                 schedule,
                 "hold-1",
+                "jti-1",
                 List.of(seat),
                 expiresAt
         );

@@ -40,6 +40,7 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(attributePaths = {
             "user",
+            "schedule",
             "seats",
             "seats.seat"
     })

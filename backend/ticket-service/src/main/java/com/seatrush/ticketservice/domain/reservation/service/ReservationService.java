@@ -8,6 +8,8 @@ import com.seatrush.ticketservice.domain.reservation.dto.response.ReservationRes
 import com.seatrush.ticketservice.domain.reservation.dto.response.PaymentRequestResponseDto;
 import com.seatrush.ticketservice.domain.reservation.entity.Reservation;
 import com.seatrush.ticketservice.domain.reservation.entity.ReservationStatus;
+import com.seatrush.ticketservice.domain.reservation.event.model.EntrySlotReleaseReason;
+import com.seatrush.ticketservice.domain.reservation.event.publisher.EntrySlotReleaseOutboxWriter;
 import com.seatrush.ticketservice.domain.reservation.event.publisher.PaymentRequestOutboxWriter;
 import com.seatrush.ticketservice.domain.reservation.repository.ReservationRepository;
 import com.seatrush.ticketservice.domain.seat.entity.Seat;
@@ -32,6 +34,7 @@ public class ReservationService {
     private final UserRepository userRepository;
     private final SeatRepository seatRepository;
     private final ReservationHoldReleaseService holdReleaseService;
+    private final EntrySlotReleaseOutboxWriter entrySlotReleaseOutboxWriter;
     private final PaymentRequestOutboxWriter paymentRequestOutboxWriter;
 
     public ReservationService(
@@ -39,12 +42,14 @@ public class ReservationService {
             UserRepository userRepository,
             SeatRepository seatRepository,
             ReservationHoldReleaseService holdReleaseService,
+            EntrySlotReleaseOutboxWriter entrySlotReleaseOutboxWriter,
             PaymentRequestOutboxWriter paymentRequestOutboxWriter
     ) {
         this.reservationRepository = reservationRepository;
         this.userRepository = userRepository;
         this.seatRepository = seatRepository;
         this.holdReleaseService = holdReleaseService;
+        this.entrySlotReleaseOutboxWriter = entrySlotReleaseOutboxWriter;
         this.paymentRequestOutboxWriter = paymentRequestOutboxWriter;
     }
 
@@ -69,6 +74,7 @@ public class ReservationService {
                 user,
                 seats.getFirst().getSection().getSchedule(),
                 hold.holdId(),
+                hold.entryTokenId(),
                 seats,
                 expiresAt
         );
@@ -103,9 +109,19 @@ public class ReservationService {
         if (reservation.getStatus() == ReservationStatus.PENDING_PAYMENT
                 && !reservation.getExpiresAt().isAfter(now)) {
             reservation.expire(now);
+            entrySlotReleaseOutboxWriter.append(
+                    reservation,
+                    EntrySlotReleaseReason.RESERVATION_EXPIRED,
+                    now
+            );
         } else {
             try {
                 reservation.cancel();
+                entrySlotReleaseOutboxWriter.append(
+                        reservation,
+                        EntrySlotReleaseReason.RESERVATION_CANCELED,
+                        now
+                );
             } catch (IllegalStateException exception) {
                 throw new CustomException(ErrorCode.INVALID_RESERVATION_STATE);
             }
@@ -175,6 +191,11 @@ public class ReservationService {
         if (reservation.getStatus() == ReservationStatus.PENDING_PAYMENT
                 && !reservation.getExpiresAt().isAfter(now)) {
             reservation.expire(now);
+            entrySlotReleaseOutboxWriter.append(
+                    reservation,
+                    EntrySlotReleaseReason.RESERVATION_EXPIRED,
+                    now
+            );
             holdReleaseService.releaseAfterCommit(reservation.getHoldId());
         }
     }

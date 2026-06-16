@@ -8,6 +8,8 @@ import com.seatrush.ticketservice.domain.concert.entity.ConcertSchedule;
 import com.seatrush.ticketservice.domain.reservation.dto.response.ReservationResponseDto;
 import com.seatrush.ticketservice.domain.reservation.entity.Reservation;
 import com.seatrush.ticketservice.domain.reservation.entity.ReservationStatus;
+import com.seatrush.ticketservice.domain.reservation.event.model.EntrySlotReleaseReason;
+import com.seatrush.ticketservice.domain.reservation.event.publisher.EntrySlotReleaseOutboxWriter;
 import com.seatrush.ticketservice.domain.reservation.event.publisher.PaymentRequestOutboxWriter;
 import com.seatrush.ticketservice.domain.reservation.repository.ReservationRepository;
 import com.seatrush.ticketservice.domain.seat.entity.Seat;
@@ -42,6 +44,7 @@ class ReservationServiceTest {
     private UserRepository userRepository;
     private SeatRepository seatRepository;
     private ReservationHoldReleaseService holdReleaseService;
+    private EntrySlotReleaseOutboxWriter entrySlotReleaseOutboxWriter;
     private PaymentRequestOutboxWriter paymentRequestOutboxWriter;
     private ReservationService service;
 
@@ -51,12 +54,14 @@ class ReservationServiceTest {
         userRepository = mock(UserRepository.class);
         seatRepository = mock(SeatRepository.class);
         holdReleaseService = mock(ReservationHoldReleaseService.class);
+        entrySlotReleaseOutboxWriter = mock(EntrySlotReleaseOutboxWriter.class);
         paymentRequestOutboxWriter = mock(PaymentRequestOutboxWriter.class);
         service = new ReservationService(
                 reservationRepository,
                 userRepository,
                 seatRepository,
                 holdReleaseService,
+                entrySlotReleaseOutboxWriter,
                 paymentRequestOutboxWriter
         );
     }
@@ -123,6 +128,11 @@ class ReservationServiceTest {
 
         assertThat(response.status()).isEqualTo(ReservationStatus.CANCELED);
         verify(holdReleaseService).releaseAfterCommit("hold-1");
+        verify(entrySlotReleaseOutboxWriter).append(
+                org.mockito.ArgumentMatchers.eq(reservation),
+                org.mockito.ArgumentMatchers.eq(EntrySlotReleaseReason.RESERVATION_CANCELED),
+                org.mockito.ArgumentMatchers.any(LocalDateTime.class)
+        );
     }
 
     /**
@@ -210,6 +220,7 @@ class ReservationServiceTest {
                 user,
                 schedule,
                 "hold-1",
+                "jti-1",
                 List.of(seat(101L, schedule, new BigDecimal("150000"))),
                 expiresAt
         );

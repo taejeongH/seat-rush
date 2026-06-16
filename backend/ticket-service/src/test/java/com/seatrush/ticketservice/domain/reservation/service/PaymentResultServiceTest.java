@@ -7,8 +7,10 @@ import com.seatrush.ticketservice.domain.concert.entity.ConcertSchedule;
 import com.seatrush.ticketservice.domain.reservation.entity.PaymentResultApplyResult;
 import com.seatrush.ticketservice.domain.reservation.entity.Reservation;
 import com.seatrush.ticketservice.domain.reservation.entity.ReservationStatus;
+import com.seatrush.ticketservice.domain.reservation.event.model.EntrySlotReleaseReason;
 import com.seatrush.ticketservice.domain.reservation.event.model.PaymentResultEvent;
 import com.seatrush.ticketservice.domain.reservation.event.model.PaymentResultStatus;
+import com.seatrush.ticketservice.domain.reservation.event.publisher.EntrySlotReleaseOutboxWriter;
 import com.seatrush.ticketservice.domain.reservation.event.publisher.NotificationEventOutboxWriter;
 import com.seatrush.ticketservice.domain.reservation.repository.ReservationRepository;
 import com.seatrush.ticketservice.domain.seat.entity.Seat;
@@ -37,6 +39,7 @@ class PaymentResultServiceTest {
 
     private ReservationRepository reservationRepository;
     private ReservationHoldReleaseService holdReleaseService;
+    private EntrySlotReleaseOutboxWriter entrySlotReleaseOutboxWriter;
     private NotificationEventOutboxWriter notificationEventOutboxWriter;
     private PaymentResultService service;
 
@@ -44,10 +47,12 @@ class PaymentResultServiceTest {
     void setUp() {
         reservationRepository = mock(ReservationRepository.class);
         holdReleaseService = mock(ReservationHoldReleaseService.class);
+        entrySlotReleaseOutboxWriter = mock(EntrySlotReleaseOutboxWriter.class);
         notificationEventOutboxWriter = mock(NotificationEventOutboxWriter.class);
         service = new PaymentResultService(
                 reservationRepository,
                 holdReleaseService,
+                entrySlotReleaseOutboxWriter,
                 notificationEventOutboxWriter
         );
     }
@@ -69,6 +74,12 @@ class PaymentResultServiceTest {
         assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.CONFIRMED);
         verify(seat).reserve();
         verify(holdReleaseService).releaseAfterCommit("hold-1");
+        verify(entrySlotReleaseOutboxWriter)
+                .append(
+                        org.mockito.ArgumentMatchers.eq(reservation),
+                        org.mockito.ArgumentMatchers.eq(EntrySlotReleaseReason.PAYMENT_SUCCESS),
+                        org.mockito.ArgumentMatchers.any(LocalDateTime.class)
+                );
         verify(notificationEventOutboxWriter)
                 .appendReservationConfirmed(
                         org.mockito.ArgumentMatchers.eq(reservation),
@@ -91,6 +102,12 @@ class PaymentResultServiceTest {
         assertThat(result).isEqualTo(PaymentResultApplyResult.APPLIED);
         assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.CANCELED);
         verify(holdReleaseService).releaseAfterCommit("hold-1");
+        verify(entrySlotReleaseOutboxWriter)
+                .append(
+                        org.mockito.ArgumentMatchers.eq(reservation),
+                        org.mockito.ArgumentMatchers.eq(EntrySlotReleaseReason.PAYMENT_FAILED),
+                        org.mockito.ArgumentMatchers.any(LocalDateTime.class)
+                );
         verify(notificationEventOutboxWriter)
                 .appendPaymentFailed(
                         org.mockito.ArgumentMatchers.eq(reservation),
@@ -189,6 +206,7 @@ class PaymentResultServiceTest {
                 user,
                 schedule,
                 "hold-1",
+                "jti-1",
                 List.of(seat),
                 LocalDateTime.now().plusMinutes(10)
         );
