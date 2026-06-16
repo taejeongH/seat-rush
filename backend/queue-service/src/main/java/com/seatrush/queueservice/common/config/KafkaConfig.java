@@ -27,10 +27,29 @@ public class KafkaConfig {
     }
 
     @Bean
+    public NewTopic entrySlotReleaseTopic() {
+        return TopicBuilder.name(KafkaTopic.ENTRY_SLOT_RELEASE)
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic entrySlotReleaseDltTopic() {
+        return TopicBuilder.name(KafkaTopic.ENTRY_SLOT_RELEASE_DLT)
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
     public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, String> kafkaTemplate) {
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
                 kafkaTemplate,
-                (record, exception) -> new TopicPartition(KafkaTopic.SCHEDULE_STATUS_DLT, record.partition())
+                (record, exception) -> new TopicPartition(
+                        record.topic() + ".DLT",
+                        record.partition()
+                )
         );
 
         ExponentialBackOffWithMaxRetries backOff = new ExponentialBackOffWithMaxRetries(3);

@@ -4,8 +4,10 @@ import com.seatrush.ticketservice.common.exception.CustomException;
 import com.seatrush.ticketservice.common.response.status.ErrorCode;
 import com.seatrush.ticketservice.domain.reservation.entity.PaymentResultApplyResult;
 import com.seatrush.ticketservice.domain.reservation.entity.Reservation;
+import com.seatrush.ticketservice.domain.reservation.event.model.EntrySlotReleaseReason;
 import com.seatrush.ticketservice.domain.reservation.event.model.PaymentResultEvent;
 import com.seatrush.ticketservice.domain.reservation.event.model.PaymentResultStatus;
+import com.seatrush.ticketservice.domain.reservation.event.publisher.EntrySlotReleaseOutboxWriter;
 import com.seatrush.ticketservice.domain.reservation.event.publisher.NotificationEventOutboxWriter;
 import com.seatrush.ticketservice.domain.reservation.repository.ReservationRepository;
 import org.springframework.stereotype.Service;
@@ -18,15 +20,18 @@ public class PaymentResultService {
 
     private final ReservationRepository reservationRepository;
     private final ReservationHoldReleaseService holdReleaseService;
+    private final EntrySlotReleaseOutboxWriter entrySlotReleaseOutboxWriter;
     private final NotificationEventOutboxWriter notificationEventOutboxWriter;
 
     public PaymentResultService(
             ReservationRepository reservationRepository,
             ReservationHoldReleaseService holdReleaseService,
+            EntrySlotReleaseOutboxWriter entrySlotReleaseOutboxWriter,
             NotificationEventOutboxWriter notificationEventOutboxWriter
     ) {
         this.reservationRepository = reservationRepository;
         this.holdReleaseService = holdReleaseService;
+        this.entrySlotReleaseOutboxWriter = entrySlotReleaseOutboxWriter;
         this.notificationEventOutboxWriter = notificationEventOutboxWriter;
     }
 
@@ -51,7 +56,13 @@ public class PaymentResultService {
         }
 
         if (result == PaymentResultApplyResult.APPLIED) {
-            appendNotificationEvent(reservation, event.status());
+            LocalDateTime occurredAt = LocalDateTime.now();
+            appendNotificationEvent(reservation, event.status(), occurredAt);
+            entrySlotReleaseOutboxWriter.append(
+                    reservation,
+                    releaseReason(event.status()),
+                    occurredAt
+            );
         }
         holdReleaseService.releaseAfterCommit(reservation.getHoldId());
         return result;
@@ -59,9 +70,9 @@ public class PaymentResultService {
 
     private void appendNotificationEvent(
             Reservation reservation,
-            PaymentResultStatus status
+            PaymentResultStatus status,
+            LocalDateTime occurredAt
     ) {
-        LocalDateTime occurredAt = LocalDateTime.now();
         if (status == PaymentResultStatus.SUCCESS) {
             notificationEventOutboxWriter.appendReservationConfirmed(
                     reservation,
@@ -73,6 +84,13 @@ public class PaymentResultService {
                 reservation,
                 occurredAt
         );
+    }
+
+    private EntrySlotReleaseReason releaseReason(PaymentResultStatus status) {
+        if (status == PaymentResultStatus.SUCCESS) {
+            return EntrySlotReleaseReason.PAYMENT_SUCCESS;
+        }
+        return EntrySlotReleaseReason.PAYMENT_FAILED;
     }
 
     private void validateRequiredFields(PaymentResultEvent event) {

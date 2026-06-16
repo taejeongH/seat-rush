@@ -2,6 +2,8 @@ package com.seatrush.ticketservice.domain.reservation.service;
 
 import com.seatrush.ticketservice.domain.reservation.config.ReservationProperties;
 import com.seatrush.ticketservice.domain.reservation.entity.Reservation;
+import com.seatrush.ticketservice.domain.reservation.event.model.EntrySlotReleaseReason;
+import com.seatrush.ticketservice.domain.reservation.event.publisher.EntrySlotReleaseOutboxWriter;
 import com.seatrush.ticketservice.domain.reservation.repository.ReservationRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,15 +19,18 @@ public class ReservationExpirationService {
 
     private final ReservationRepository reservationRepository;
     private final ReservationHoldReleaseService holdReleaseService;
+    private final EntrySlotReleaseOutboxWriter entrySlotReleaseOutboxWriter;
     private final ReservationProperties properties;
 
     public ReservationExpirationService(
             ReservationRepository reservationRepository,
             ReservationHoldReleaseService holdReleaseService,
+            EntrySlotReleaseOutboxWriter entrySlotReleaseOutboxWriter,
             ReservationProperties properties
     ) {
         this.reservationRepository = reservationRepository;
         this.holdReleaseService = holdReleaseService;
+        this.entrySlotReleaseOutboxWriter = entrySlotReleaseOutboxWriter;
         this.properties = properties;
     }
 
@@ -40,6 +45,11 @@ public class ReservationExpirationService {
         );
         reservations.forEach(reservation -> {
             reservation.expire(now);
+            entrySlotReleaseOutboxWriter.append(
+                    reservation,
+                    EntrySlotReleaseReason.RESERVATION_EXPIRED,
+                    now
+            );
             holdReleaseService.releaseAfterCommit(reservation.getHoldId());
         });
         return reservations.size();

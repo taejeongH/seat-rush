@@ -43,6 +43,9 @@ public class Reservation {
     @Column(name = "hold_id", nullable = false, unique = true, length = 100)
     private String holdId;
 
+    @Column(name = "entry_token_id", length = 100)
+    private String entryTokenId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private ReservationStatus status;
@@ -70,12 +73,14 @@ public class Reservation {
             User user,
             ConcertSchedule schedule,
             String holdId,
+            String entryTokenId,
             BigDecimal totalAmount,
             LocalDateTime expiresAt
     ) {
         this.user = user;
         this.schedule = schedule;
         this.holdId = holdId;
+        this.entryTokenId = entryTokenId;
         this.status = ReservationStatus.PENDING_PAYMENT;
         this.totalAmount = totalAmount;
         this.expiresAt = expiresAt;
@@ -85,6 +90,7 @@ public class Reservation {
             User user,
             ConcertSchedule schedule,
             String holdId,
+            String entryTokenId,
             List<Seat> seats,
             LocalDateTime expiresAt
     ) {
@@ -95,6 +101,7 @@ public class Reservation {
                 user,
                 schedule,
                 holdId,
+                entryTokenId,
                 totalAmount,
                 expiresAt
         );
@@ -187,6 +194,10 @@ public class Reservation {
 
     public String getHoldId() {
         return holdId;
+    }
+
+    public String getEntryTokenId() {
+        return entryTokenId;
     }
 
     public ReservationStatus getStatus() {

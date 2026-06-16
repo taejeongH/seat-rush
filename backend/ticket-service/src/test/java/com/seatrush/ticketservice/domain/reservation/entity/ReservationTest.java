@@ -117,6 +117,7 @@ class ReservationTest {
                 mock(User.class),
                 seat.getSection().getSchedule(),
                 "hold-1",
+                "jti-1",
                 List.of(seat),
                 LocalDateTime.now().plusMinutes(10)
         );
@@ -139,6 +140,7 @@ class ReservationTest {
                 mock(User.class),
                 seat.getSection().getSchedule(),
                 "hold-1",
+                "jti-1",
                 List.of(seat),
                 LocalDateTime.now().plusMinutes(10)
         );
@@ -193,7 +195,7 @@ class ReservationTest {
         List<Seat> seats = java.util.Arrays.stream(prices)
                 .map(price -> seat(schedule, price))
                 .toList();
-        return Reservation.create(user, schedule, "hold-1", seats, expiresAt);
+        return Reservation.create(user, schedule, "hold-1", "jti-1", seats, expiresAt);
     }
 
     private Seat seat(ConcertSchedule schedule, BigDecimal price) {

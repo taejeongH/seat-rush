@@ -73,6 +73,12 @@ public class EntryTokenRedisRepository {
                     return {0, ARGV[3], expiresAt}
                     """, List.class);
 
+    private static final DefaultRedisScript<Long> RELEASE_ENTRY_SLOT_SCRIPT =
+            new DefaultRedisScript<>("""
+                    redis.call('DEL', KEYS[1])
+                    return redis.call('ZREM', KEYS[2], ARGV[1])
+                    """, Long.class);
+
     private final RedisTemplate<String, String> redisTemplate;
 
     public EntryTokenRedisRepository(RedisTemplate<String, String> redisTemplate) {
@@ -123,6 +129,25 @@ public class EntryTokenRedisRepository {
             case -4 -> new EntryTokenIssueResult(EntryTokenIssueStatus.QUEUE_NOT_OPEN, null, 0);
             default -> throw new IllegalStateException("알 수 없는 entryToken 발급 결과입니다: " + resultCode);
         };
+    }
+
+    /**
+     * entryToken과 active entry member를 제거해 입장 슬롯을 반환합니다.
+     */
+    public boolean releaseSlot(
+            Long scheduleId,
+            Long userId,
+            String entryTokenId
+    ) {
+        Long removed = redisTemplate.execute(
+                RELEASE_ENTRY_SLOT_SCRIPT,
+                List.of(
+                        EntryTokenKey.userToken(scheduleId, userId),
+                        QueueKey.activeEntries(scheduleId)
+                ),
+                entryTokenId
+        );
+        return removed != null && removed > 0;
     }
 
     private long toLong(Object value) {
