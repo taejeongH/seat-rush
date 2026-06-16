@@ -196,6 +196,33 @@ class EntryTokenRedisRepositoryIntegrationTest {
     /**
      * 동시에 입장을 요청해도 설정한 활성 토큰 수를 초과하지 않는지 확인합니다.
      */
+    /**
+     * entry slot 반환 이벤트가 처리되면 다음 대기 사용자가 즉시 입장 가능해지는지 확인합니다.
+     */
+    @Test
+    void nextWaitingUserBecomesEnterableAfterSlotRelease() {
+        String token = "release-capacity-token";
+        String entryTokenId = "jti-" + token;
+        issuedTokens.add(token);
+        issue(FIRST_USER_ID, token, 1, 60_000);
+
+        boolean released = entryTokenRedisRepository.releaseSlot(
+                SCHEDULE_ID,
+                FIRST_USER_ID,
+                entryTokenId
+        );
+        QueueAdmissionState state = queueRedisRepository.getAdmissionState(
+                SCHEDULE_ID,
+                SECOND_USER_ID,
+                1
+        );
+
+        assertThat(released).isTrue();
+        assertThat(redisTemplate.hasKey(EntryTokenKey.userToken(SCHEDULE_ID, FIRST_USER_ID)))
+                .isFalse();
+        assertThat(state.enterable()).isTrue();
+    }
+
     @Test
     void concurrentIssueDoesNotExceedAdmissionCapacity() throws Exception {
         int userCount = 20;
