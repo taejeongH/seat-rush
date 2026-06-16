@@ -16,7 +16,7 @@ import type {
   User,
 } from './types'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 const ACCESS_TOKEN_KEY = 'seat-rush-access-token'
 
 export class ApiError extends Error {
@@ -56,7 +56,7 @@ async function request<T>(
   const body = (await response.json().catch(() => null)) as ApiResponse<T> | null
 
   if (!response.ok || !body?.isSuccess) {
-    if (response.status === 401) tokenStorage.clear()
+    if ([401, 403].includes(response.status)) tokenStorage.clear()
     throw new ApiError(
       body?.message ?? '요청을 처리하지 못했습니다.',
       body?.code,

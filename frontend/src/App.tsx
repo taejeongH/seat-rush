@@ -1,17 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
-  ArrowLeft, Check, Clock3, LogOut, MapPin, RefreshCw, Ticket,
+  ArrowLeft, Check, Clock3, Gamepad2, LogOut, MapPin, RefreshCw, Ticket,
   UserRound, X,
 } from 'lucide-react'
 import { ApiError, api, tokenStorage } from './api'
+import { CompetitionMode } from './CompetitionMode'
+import {
+  competitionApi,
+  type CompetitionSnapshot,
+} from './competition'
 import type {
   Concert, ConcertDetail, QueuePosition, Reservation, Schedule, Seat,
   SeatHold, SeatSection, User,
 } from './types'
 import './App.css'
 
-type View = 'concerts' | 'schedule' | 'queue' | 'seats' | 'payment' | 'result'
+type View = 'concerts' | 'competition' | 'schedule' | 'queue' | 'seats' | 'payment' | 'result'
 type AuthMode = 'login' | 'signup'
 
 const posterFallbacks = [
@@ -19,6 +24,19 @@ const posterFallbacks = [
   'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&w=1200&q=85',
   'https://images.unsplash.com/photo-1468359601543-843bfaef291a?auto=format&fit=crop&w=1200&q=85',
 ]
+
+const initialCompetitionSnapshot: CompetitionSnapshot = {
+  runId: null,
+  status: 'IDLE',
+  gatewayBaseUrl: '',
+  scheduleId: null,
+  totalUsers: 0,
+  completedUsers: 0,
+  startAt: null,
+  updatedAt: new Date(0).toISOString(),
+  userStatuses: {},
+  recentEvents: [],
+}
 
 const formatDate = (value?: string) => value
   ? new Intl.DateTimeFormat('ko-KR', {
@@ -80,6 +98,9 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState('')
+  const [competitionSnapshot, setCompetitionSnapshot] =
+    useState<CompetitionSnapshot>(initialCompetitionSnapshot)
+  const [competitionConnected, setCompetitionConnected] = useState(false)
 
   const navigate = useCallback((
     nextView: View,
@@ -104,7 +125,7 @@ export default function App() {
     const handlePopState = (event: PopStateEvent) => {
       const nextView = event.state?.seatRushView
       const availableViews: View[] = [
-        'concerts', 'schedule', 'queue', 'seats', 'payment', 'result',
+        'concerts', 'competition', 'schedule', 'queue', 'seats', 'payment', 'result',
       ]
       setView(availableViews.includes(nextView) ? nextView : 'concerts')
       setError('')
@@ -121,13 +142,37 @@ export default function App() {
         setConcerts(page.content)
         if (tokenStorage.get()) setUser(await api.me())
       } catch (caught) {
-        if (!(caught instanceof ApiError) || caught.status !== 401) handleError(caught)
+        if (!(caught instanceof ApiError) || ![401, 403].includes(caught.status)) {
+          handleError(caught)
+        }
       } finally {
         setLoading(false)
       }
     }
     void initialize()
   }, [handleError])
+
+  useEffect(() => {
+    let eventSource: EventSource | null = null
+
+    const connectCompetitionGenerator = async () => {
+      try {
+        setCompetitionSnapshot(await competitionApi.status())
+        setCompetitionConnected(true)
+        eventSource = new EventSource(competitionApi.eventUrl)
+        eventSource.onmessage = (event) => {
+          setCompetitionSnapshot(JSON.parse(event.data) as CompetitionSnapshot)
+          setCompetitionConnected(true)
+        }
+        eventSource.onerror = () => setCompetitionConnected(false)
+      } catch {
+        setCompetitionConnected(false)
+      }
+    }
+
+    void connectCompetitionGenerator()
+    return () => eventSource?.close()
+  }, [])
 
   useEffect(() => {
     if (view !== 'queue' || !schedule || queue?.status === 'ENTERABLE') return
@@ -179,6 +224,27 @@ export default function App() {
       ])
       setConcert(detail)
       setSchedules(scheduleList)
+      navigate('schedule')
+    } catch (caught) {
+      handleError(caught)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const continueAfterCompetitionStart = async (
+    concertId: number,
+    selectedSchedule: Schedule,
+  ) => {
+    setLoading(true)
+    try {
+      const [detail, scheduleList] = await Promise.all([
+        api.concert(concertId),
+        api.schedules(concertId),
+      ])
+      setConcert(detail)
+      setSchedules(scheduleList)
+      setSchedule(selectedSchedule)
       navigate('schedule')
     } catch (caught) {
       handleError(caught)
@@ -347,6 +413,9 @@ export default function App() {
           Seat Rush
         </button>
         <div className="topbar-actions">
+          <button className="ghost-button" onClick={() => navigate('competition')}>
+            <Gamepad2 size={17} /> 경쟁 모드
+          </button>
           {user ? (
             <>
               <span className="user-name">{user.name}님</span>
@@ -371,6 +440,15 @@ export default function App() {
         )}
         {loading ? <LoadingState /> : view === 'concerts' ? (
           <ConcertList concerts={concerts} onSelect={selectConcert} />
+        ) : view === 'competition' ? (
+          <CompetitionMode
+            concerts={concerts}
+            snapshot={competitionSnapshot}
+            connected={competitionConnected}
+            onSnapshot={setCompetitionSnapshot}
+            onStarted={continueAfterCompetitionStart}
+            onBack={reset}
+          />
         ) : (
           <div className="flow-layout">
             <section className="main-panel">
@@ -402,6 +480,14 @@ export default function App() {
         )}
       </main>
 
+      {view !== 'competition' && competitionSnapshot.runId && (
+        <CompetitionOverlay
+          snapshot={competitionSnapshot}
+          connected={competitionConnected}
+          onOpen={() => navigate('competition')}
+        />
+      )}
+
       {authOpen && (
         <AuthModal onClose={() => setAuthOpen(false)}
           onAuthenticated={(authenticated) => {
@@ -411,6 +497,37 @@ export default function App() {
           }} />
       )}
     </div>
+  )
+}
+
+function CompetitionOverlay({
+  snapshot,
+  connected,
+  onOpen,
+}: {
+  snapshot: CompetitionSnapshot
+  connected: boolean
+  onOpen: () => void
+}) {
+  const confirmed = snapshot.userStatuses.CONFIRMED ?? 0
+  const abandoned = ['ABANDONED_QUEUE', 'ABANDONED_ENTRY', 'ABANDONED_HOLD']
+    .reduce((total, status) => total + (snapshot.userStatuses[status] ?? 0), 0)
+  const failed = ['FAILED', 'PAYMENT_FAILED']
+    .reduce((total, status) => total + (snapshot.userStatuses[status] ?? 0), 0)
+
+  return (
+    <button className="competition-overlay" onClick={onOpen}>
+      <span className={`competition-live-dot ${connected ? 'connected' : ''}`} />
+      <span>
+        <strong>가상 사용자 경쟁</strong>
+        <small>{snapshot.status} · 완료 {snapshot.completedUsers}/{snapshot.totalUsers}</small>
+      </span>
+      <span className="competition-overlay-stats">
+        <b>성공 {confirmed}</b>
+        <b>이탈 {abandoned}</b>
+        <b>실패 {failed}</b>
+      </span>
+    </button>
   )
 }
 
