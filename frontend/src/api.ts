@@ -119,6 +119,12 @@ export const api = {
   queuePosition: (scheduleId: number) =>
     request<QueuePosition>(`/api/schedules/${scheduleId}/queues/me`),
 
+  queueHeartbeat: (scheduleId: number) =>
+    request<void>(
+      `/api/schedules/${scheduleId}/queues/heartbeat`,
+      { method: 'POST' },
+    ),
+
   enterQueue: (scheduleId: number) =>
     request<EntryTokenResult>(
       `/api/schedules/${scheduleId}/queues/enter`,

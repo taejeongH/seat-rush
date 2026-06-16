@@ -33,7 +33,11 @@ public class QueueService {
      * 이미 등록된 사용자의 재요청은 새 순번을 만들지 않고 기존 순번을 반환합니다.
      */
     public QueueJoinResponseDto join(Long scheduleId, Long userId) {
-        QueueJoinResult joinResult = queueRedisRepository.join(scheduleId, userId);
+        QueueJoinResult joinResult = queueRedisRepository.join(
+                scheduleId,
+                userId,
+                sessionTtlMillis()
+        );
         validateScheduleState(joinResult.position());
         long totalWaiting = queueRedisRepository.getWaitingCount(scheduleId);
 
@@ -53,7 +57,8 @@ public class QueueService {
         QueueAdmissionState state = queueRedisRepository.getAdmissionState(
                 scheduleId,
                 userId,
-                admissionProperties.capacity()
+                admissionProperties.capacity(),
+                sessionTtlMillis()
         );
 
         if (state.position() == -1) {
@@ -66,6 +71,19 @@ public class QueueService {
                 state.totalWaiting(),
                 state.enterable() ? QueueStatus.ENTERABLE : QueueStatus.WAITING
         );
+    }
+
+    /**
+     * 대기 화면에 머무르는 사용자의 대기열 session TTL을 갱신합니다.
+     */
+    public void heartbeat(Long scheduleId, Long userId) {
+        if (!queueRedisRepository.heartbeat(scheduleId, userId, sessionTtlMillis())) {
+            throw new CustomException(ErrorCode.QUEUE_ENTRY_NOT_FOUND);
+        }
+    }
+
+    private long sessionTtlMillis() {
+        return admissionProperties.sessionTtl().toMillis();
     }
 
     private void validateScheduleState(long position) {

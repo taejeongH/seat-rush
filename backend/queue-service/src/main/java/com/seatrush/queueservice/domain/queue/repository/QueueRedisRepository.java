@@ -20,12 +20,22 @@ public class QueueRedisRepository {
                         tonumber(redisTime[1]) * 1000
                         + math.floor(tonumber(redisTime[2]) / 1000)
 
+                    local expiredUsers = redis.call('ZRANGEBYSCORE', KEYS[3], '-inf', nowMillis)
+                    for _, expiredUserId in ipairs(expiredUsers) do
+                        redis.call('ZREM', KEYS[1], expiredUserId)
+                        redis.call('ZREM', KEYS[3], expiredUserId)
+                    end
+
                     redis.call('ZREMRANGEBYSCORE', KEYS[2], '-inf', nowMillis)
 
                     local rank = redis.call('ZRANK', KEYS[1], ARGV[1])
                     if not rank then
                         return {-1, 0, 0}
                     end
+
+                    local sessionExpiresAt = nowMillis + tonumber(ARGV[3])
+                    redis.call('PSETEX', KEYS[4], ARGV[3], '1')
+                    redis.call('ZADD', KEYS[3], sessionExpiresAt, ARGV[1])
 
                     local totalWaiting = redis.call('ZCARD', KEYS[1])
                     local activeCount = redis.call('ZCARD', KEYS[2])
@@ -41,6 +51,17 @@ public class QueueRedisRepository {
 
     private static final DefaultRedisScript<List> JOIN_QUEUE_SCRIPT =
             new DefaultRedisScript<>("""
+                    local redisTime = redis.call('TIME')
+                    local nowMillis =
+                        tonumber(redisTime[1]) * 1000
+                        + math.floor(tonumber(redisTime[2]) / 1000)
+
+                    local expiredUsers = redis.call('ZRANGEBYSCORE', KEYS[4], '-inf', nowMillis)
+                    for _, expiredUserId in ipairs(expiredUsers) do
+                        redis.call('ZREM', KEYS[1], expiredUserId)
+                        redis.call('ZREM', KEYS[4], expiredUserId)
+                    end
+
                     local schedule = redis.call(
                         'HMGET',
                         KEYS[3],
@@ -61,25 +82,49 @@ public class QueueRedisRepository {
                         return {-2, 0}
                     end
 
-                    local redisTime = redis.call('TIME')
-                    local nowMillis =
-                        tonumber(redisTime[1]) * 1000
-                        + math.floor(tonumber(redisTime[2]) / 1000)
-
                     if nowMillis < bookingOpenAt or nowMillis >= bookingCloseAt then
                         return {-2, 0}
                     end
 
+                    local sessionExpiresAt = nowMillis + tonumber(ARGV[2])
                     if redis.call('ZSCORE', KEYS[1], ARGV[1]) then
+                        redis.call('PSETEX', KEYS[5], ARGV[2], '1')
+                        redis.call('ZADD', KEYS[4], sessionExpiresAt, ARGV[1])
                         local rank = redis.call('ZRANK', KEYS[1], ARGV[1])
                         return {rank + 1, 1}
                     end
 
                     local sequence = redis.call('INCR', KEYS[2])
                     redis.call('ZADD', KEYS[1], sequence, ARGV[1])
+                    redis.call('PSETEX', KEYS[5], ARGV[2], '1')
+                    redis.call('ZADD', KEYS[4], sessionExpiresAt, ARGV[1])
                     local rank = redis.call('ZRANK', KEYS[1], ARGV[1])
                     return {rank + 1, 0}
                     """, List.class);
+
+    private static final DefaultRedisScript<Long> HEARTBEAT_SCRIPT =
+            new DefaultRedisScript<>("""
+                    local redisTime = redis.call('TIME')
+                    local nowMillis =
+                        tonumber(redisTime[1]) * 1000
+                        + math.floor(tonumber(redisTime[2]) / 1000)
+
+                    local expiredUsers = redis.call('ZRANGEBYSCORE', KEYS[2], '-inf', nowMillis)
+                    for _, expiredUserId in ipairs(expiredUsers) do
+                        redis.call('ZREM', KEYS[1], expiredUserId)
+                        redis.call('ZREM', KEYS[2], expiredUserId)
+                    end
+
+                    local rank = redis.call('ZRANK', KEYS[1], ARGV[1])
+                    if not rank then
+                        return 0
+                    end
+
+                    local sessionExpiresAt = nowMillis + tonumber(ARGV[2])
+                    redis.call('PSETEX', KEYS[3], ARGV[2], '1')
+                    redis.call('ZADD', KEYS[2], sessionExpiresAt, ARGV[1])
+                    return 1
+                    """, Long.class);
 
     private final RedisTemplate<String, String> redisTemplate;
 
@@ -93,15 +138,18 @@ public class QueueRedisRepository {
      * @return 현재 대기 순번과 기존 진입 여부
      */
     @SuppressWarnings("unchecked")
-    public QueueJoinResult join(Long scheduleId, Long userId) {
+    public QueueJoinResult join(Long scheduleId, Long userId, long sessionTtlMillis) {
         List<Long> result = redisTemplate.execute(
                 JOIN_QUEUE_SCRIPT,
                 List.of(
                         QueueKey.waiting(scheduleId),
                         QueueKey.sequence(scheduleId),
-                        QueueKey.scheduleState(scheduleId)
+                        QueueKey.scheduleState(scheduleId),
+                        QueueKey.sessionExpirations(scheduleId),
+                        QueueKey.session(scheduleId, userId)
                 ),
-                userId.toString()
+                userId.toString(),
+                Long.toString(sessionTtlMillis)
         );
 
         if (result == null || result.size() != 2) {
@@ -137,16 +185,20 @@ public class QueueRedisRepository {
     public QueueAdmissionState getAdmissionState(
             Long scheduleId,
             Long userId,
-            int admissionCapacity
+            int admissionCapacity,
+            long sessionTtlMillis
     ) {
         List<Object> result = redisTemplate.execute(
                 GET_ADMISSION_STATE_SCRIPT,
                 List.of(
                         QueueKey.waiting(scheduleId),
-                        QueueKey.activeEntries(scheduleId)
+                        QueueKey.activeEntries(scheduleId),
+                        QueueKey.sessionExpirations(scheduleId),
+                        QueueKey.session(scheduleId, userId)
                 ),
                 userId.toString(),
-                Integer.toString(admissionCapacity)
+                Integer.toString(admissionCapacity),
+                Long.toString(sessionTtlMillis)
         );
 
         if (result == null || result.size() != 3) {
@@ -160,11 +212,33 @@ public class QueueRedisRepository {
         );
     }
 
+    public QueueAdmissionState getAdmissionState(
+            Long scheduleId,
+            Long userId,
+            int admissionCapacity
+    ) {
+        return getAdmissionState(scheduleId, userId, admissionCapacity, 30_000);
+    }
+
     private long toLong(Object value) {
         if (value instanceof Number number) {
             return number.longValue();
         }
         return Long.parseLong(value.toString());
+    }
+
+    public boolean heartbeat(Long scheduleId, Long userId, long sessionTtlMillis) {
+        Long result = redisTemplate.execute(
+                HEARTBEAT_SCRIPT,
+                List.of(
+                        QueueKey.waiting(scheduleId),
+                        QueueKey.sessionExpirations(scheduleId),
+                        QueueKey.session(scheduleId, userId)
+                ),
+                userId.toString(),
+                Long.toString(sessionTtlMillis)
+        );
+        return result != null && result == 1L;
     }
 
     public record QueueJoinResult(

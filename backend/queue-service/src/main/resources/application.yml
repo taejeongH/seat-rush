@@ -28,6 +28,7 @@ schedule:
 queue:
   admission:
     capacity: ${QUEUE_ADMISSION_CAPACITY:100}
+    session-ttl: ${QUEUE_SESSION_TTL:30s}
 
 entry-token:
   ttl: ${ENTRY_TOKEN_TTL:10m}

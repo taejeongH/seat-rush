@@ -21,6 +21,12 @@ public class EntryTokenRedisRepository {
                         tonumber(redisTime[1]) * 1000
                         + math.floor(tonumber(redisTime[2]) / 1000)
 
+                    local expiredUsers = redis.call('ZRANGEBYSCORE', KEYS[6], '-inf', nowMillis)
+                    for _, expiredUserId in ipairs(expiredUsers) do
+                        redis.call('ZREM', KEYS[1], expiredUserId)
+                        redis.call('ZREM', KEYS[6], expiredUserId)
+                    end
+
                     redis.call('ZREMRANGEBYSCORE', KEYS[2], '-inf', nowMillis)
 
                     local existingToken = redis.call('GET', KEYS[3])
@@ -67,6 +73,8 @@ public class EntryTokenRedisRepository {
 
                     local expiresAt = nowMillis + tonumber(ARGV[4])
                     redis.call('ZREM', KEYS[1], ARGV[1])
+                    redis.call('DEL', KEYS[5])
+                    redis.call('ZREM', KEYS[6], ARGV[1])
                     redis.call('PSETEX', KEYS[3], ARGV[4], ARGV[3])
                     redis.call('ZADD', KEYS[2], expiresAt, ARGV[5])
 
@@ -103,7 +111,9 @@ public class EntryTokenRedisRepository {
                         QueueKey.waiting(scheduleId),
                         QueueKey.activeEntries(scheduleId),
                         EntryTokenKey.userToken(scheduleId, userId),
-                        QueueKey.scheduleState(scheduleId)
+                        QueueKey.scheduleState(scheduleId),
+                        QueueKey.session(scheduleId, userId),
+                        QueueKey.sessionExpirations(scheduleId)
                 ),
                 userId.toString(),
                 Integer.toString(admissionCapacity),
