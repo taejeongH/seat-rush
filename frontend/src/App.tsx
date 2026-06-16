@@ -187,6 +187,14 @@ export default function App() {
   }, [handleError, view, schedule, queue?.status])
 
   useEffect(() => {
+    if (view !== 'queue' || !schedule || queue?.status === 'ENTERABLE') return
+    const timer = window.setInterval(() => {
+      void api.queueHeartbeat(schedule.scheduleId).catch(() => undefined)
+    }, 10000)
+    return () => window.clearInterval(timer)
+  }, [view, schedule, queue?.status])
+
+  useEffect(() => {
     if (view !== 'payment' || !reservation) return
     if (paymentInitializationRef.current === reservation.reservationId) return
 

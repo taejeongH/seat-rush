@@ -9,6 +9,8 @@ public final class QueueKey {
     private static final String SEQUENCE_KEY_FORMAT = "queue:schedule:%d:sequence";
     private static final String SCHEDULE_STATE_KEY_FORMAT = "queue:schedule:%d:state";
     private static final String ACTIVE_ENTRY_KEY_FORMAT = "queue:schedule:%d:active-entries";
+    private static final String SESSION_KEY_FORMAT = "queue:schedule:%d:user:%d:session";
+    private static final String SESSION_EXPIRATION_KEY_FORMAT = "queue:schedule:%d:session-expirations";
 
     private QueueKey() {
     }
@@ -27,5 +29,13 @@ public final class QueueKey {
 
     public static String activeEntries(Long scheduleId) {
         return ACTIVE_ENTRY_KEY_FORMAT.formatted(scheduleId);
+    }
+
+    public static String session(Long scheduleId, Long userId) {
+        return SESSION_KEY_FORMAT.formatted(scheduleId, userId);
+    }
+
+    public static String sessionExpirations(Long scheduleId) {
+        return SESSION_EXPIRATION_KEY_FORMAT.formatted(scheduleId);
     }
 }

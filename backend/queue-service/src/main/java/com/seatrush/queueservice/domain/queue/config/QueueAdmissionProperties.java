@@ -4,9 +4,12 @@ import jakarta.validation.constraints.Min;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
+import java.time.Duration;
+
 @Validated
 @ConfigurationProperties(prefix = "queue.admission")
 public record QueueAdmissionProperties(
-        @Min(1) int capacity
+        @Min(1) int capacity,
+        Duration sessionTtl
 ) {
 }
