@@ -49,7 +49,7 @@ public class CompetitionService {
         validate(request);
         Disposable current = activeRun.get();
         if (current != null && !current.isDisposed()) {
-            throw new IllegalStateException("이미 가상 사용자 경쟁이 실행 중입니다.");
+            throw new IllegalStateException("virtual user competition is already running.");
         }
 
         String runId = UUID.randomUUID().toString();
@@ -139,8 +139,8 @@ public class CompetitionService {
                         user,
                         CompetitionStatus.READY,
                         reuseToken
-                                ? "저장된 access token 재사용"
-                                : "배포 서버 인증 준비 완료"
+                                ? "reused access token"
+                                : "authenticated with gateway"
                 ))
                 .onErrorResume(error -> {
                     update(user, CompetitionStatus.FAILED, error.getMessage());
@@ -170,14 +170,14 @@ public class CompetitionService {
                 .doOnNext(queue -> update(
                         user,
                         CompetitionStatus.WAITING,
-                        "대기 순번 " + queue.path("position").asLong()
+                        "waiting position " + queue.path("position").asLong()
                 ))
                 .flatMap(queue -> {
                     if (user.behavior() == CompetitionBehavior.ABANDON_QUEUE) {
                         return think().then(markTerminal(
                                 user,
                                 CompetitionStatus.ABANDONED_QUEUE,
-                                "대기열에서 이탈"
+                                "abandoned while waiting"
                         ));
                     }
                     return waitUntilEnterable(user, scheduleId);
@@ -185,23 +185,23 @@ public class CompetitionService {
                 .flatMap(ignored -> apiClient.enterQueue(scheduleId, user.accessToken()))
                 .flatMap(entry -> {
                     String entryToken = entry.path("entryToken").asText();
-                    update(user, CompetitionStatus.ENTERED, "좌석 선택 단계 입장");
+                    update(user, CompetitionStatus.ENTERED, "entered seat selection");
                     if (user.behavior() == CompetitionBehavior.ABANDON_AFTER_ENTRY) {
                         return think().then(markTerminal(
                                 user,
                                 CompetitionStatus.ABANDONED_ENTRY,
-                                "입장 후 이탈"
+                                "abandoned after entry"
                         )).then(Mono.empty());
                     }
                     return think().then(holdSeats(user, scheduleId, entryToken));
                 })
                 .flatMap(context -> {
-                    update(user, CompetitionStatus.HELD, "좌석 선점 완료");
+                    update(user, CompetitionStatus.HELD, "seat hold completed");
                     if (user.behavior() == CompetitionBehavior.ABANDON_AFTER_HOLD) {
                         return think().then(markTerminal(
                                 user,
                                 CompetitionStatus.ABANDONED_HOLD,
-                                "좌석 선점 후 이탈"
+                                "abandoned after hold"
                         )).then(Mono.empty());
                     }
                     return think().then(apiClient.createReservation(
@@ -215,7 +215,7 @@ public class CompetitionService {
                             ));
                 })
                 .flatMap(context -> {
-                    update(user, CompetitionStatus.RESERVED, "예매 생성 완료");
+                    update(user, CompetitionStatus.RESERVED, "reservation created");
                     return think().then(apiClient.requestPayment(
                                     context.reservationId(),
                                     user.accessToken()
@@ -240,7 +240,7 @@ public class CompetitionService {
                             "CONFIRMED".equals(status)
                                     ? CompetitionStatus.CONFIRMED
                                     : CompetitionStatus.PAYMENT_FAILED;
-                    return markTerminal(user, terminal, "예매 상태 " + status);
+                    return markTerminal(user, terminal, "reservation status " + status);
                 })
                 .onErrorResume(error -> markTerminal(
                         user,
@@ -250,20 +250,11 @@ public class CompetitionService {
     }
 
     private Mono<Void> waitUntilEnterable(VirtualUser user, long scheduleId) {
-        return Flux.interval(properties.queuePollInterval())
-                .concatMap(ignored -> apiClient.getQueuePosition(
-                        scheduleId,
-                        user.accessToken()
-                ))
-                .doOnNext(position -> update(
-                        user,
-                        CompetitionStatus.WAITING,
-                        "대기 순번 " + position.path("position").asLong()
-                ))
-                .filter(position -> "ENTERABLE".equals(position.path("status").asText()))
-                .next()
-                .timeout(properties.queueWaitTimeout())
-                .then();
+        return pollUntilEnterable(
+                user,
+                scheduleId,
+                Instant.now().plus(properties.queueWaitTimeout())
+        );
     }
 
     private Mono<HoldContext> holdSeats(
@@ -274,7 +265,7 @@ public class CompetitionService {
         return apiClient.getSections(scheduleId, user.accessToken(), entryToken)
                 .flatMap(sections -> {
                     if (!sections.isArray() || sections.isEmpty()) {
-                        return Mono.error(new IllegalStateException("좌석 구역이 없습니다."));
+                        return Mono.error(new IllegalStateException("seat sections not found."));
                     }
                     int sectionIndex = ThreadLocalRandom.current().nextInt(sections.size());
                     long sectionId = sections.get(sectionIndex).path("sectionId").asLong();
@@ -293,7 +284,7 @@ public class CompetitionService {
                         }
                     });
                     if (availableSeatIds.isEmpty()) {
-                        return Mono.error(new IllegalStateException("선점 가능한 좌석이 없습니다."));
+                        return Mono.error(new IllegalStateException("available seats not found."));
                     }
                     Collections.shuffle(availableSeatIds);
                     int count = Math.min(
@@ -318,30 +309,90 @@ public class CompetitionService {
     }
 
     private Mono<Void> waitUntilPaymentReady(VirtualUser user, String paymentId) {
-        return Flux.interval(Duration.ZERO, properties.paymentPollInterval())
-                .concatMap(ignored -> apiClient.getPayment(paymentId, user.accessToken()))
-                .filter(payment -> "READY".equals(payment.path("status").asText()))
-                .next()
-                .timeout(properties.paymentWaitTimeout())
-                .then();
+        return pollUntilPaymentReady(
+                user,
+                paymentId,
+                Instant.now().plus(properties.paymentWaitTimeout())
+        );
     }
 
     private Mono<JsonNode> waitUntilReservationCompleted(
             VirtualUser user,
             long reservationId
     ) {
-        return Flux.interval(Duration.ZERO, properties.paymentPollInterval())
-                .concatMap(ignored -> apiClient.getReservation(
-                        reservationId,
-                        user.accessToken()
-                ))
-                .filter(reservation -> {
+        return pollUntilReservationCompleted(
+                user,
+                reservationId,
+                Instant.now().plus(properties.paymentWaitTimeout())
+        );
+    }
+
+    private Mono<Void> pollUntilEnterable(
+            VirtualUser user,
+            long scheduleId,
+            Instant deadline
+    ) {
+        if (Instant.now().isAfter(deadline)) {
+            return Mono.error(new IllegalStateException("queue wait timeout"));
+        }
+
+        return apiClient.getQueuePosition(scheduleId, user.accessToken())
+                .flatMap(position -> {
+                    update(
+                            user,
+                            CompetitionStatus.WAITING,
+                            "waiting position " + position.path("position").asLong()
+                    );
+                    if ("ENTERABLE".equals(position.path("status").asText())) {
+                        return Mono.empty();
+                    }
+                    return Mono.delay(properties.queuePollInterval())
+                            .then(pollUntilEnterable(user, scheduleId, deadline));
+                });
+    }
+
+    private Mono<Void> pollUntilPaymentReady(
+            VirtualUser user,
+            String paymentId,
+            Instant deadline
+    ) {
+        if (Instant.now().isAfter(deadline)) {
+            return Mono.error(new IllegalStateException("payment preparation timeout"));
+        }
+
+        return apiClient.getPayment(paymentId, user.accessToken())
+                .flatMap(payment -> {
+                    if ("READY".equals(payment.path("status").asText())) {
+                        return Mono.empty();
+                    }
+                    return Mono.delay(properties.paymentPollInterval())
+                            .then(pollUntilPaymentReady(user, paymentId, deadline));
+                });
+    }
+
+    private Mono<JsonNode> pollUntilReservationCompleted(
+            VirtualUser user,
+            long reservationId,
+            Instant deadline
+    ) {
+        if (Instant.now().isAfter(deadline)) {
+            return Mono.error(new IllegalStateException("reservation completion timeout"));
+        }
+
+        return apiClient.getReservation(reservationId, user.accessToken())
+                .flatMap(reservation -> {
                     String status = reservation.path("status").asText();
-                    return !"PENDING_PAYMENT".equals(status)
-                            && !"PAYMENT_PROCESSING".equals(status);
-                })
-                .next()
-                .timeout(properties.paymentWaitTimeout());
+                    if (!"PENDING_PAYMENT".equals(status)
+                            && !"PAYMENT_PROCESSING".equals(status)) {
+                        return Mono.just(reservation);
+                    }
+                    return Mono.delay(properties.paymentPollInterval())
+                            .then(pollUntilReservationCompleted(
+                                    user,
+                                    reservationId,
+                                    deadline
+                            ));
+                });
     }
 
     private Mono<Void> markTerminal(
@@ -428,7 +479,7 @@ public class CompetitionService {
 
     private void validate(CompetitionStartRequestDto request) {
         if (request.behaviors().total() != 100) {
-            throw new IllegalArgumentException("가상 사용자 행동 비율의 합은 100이어야 합니다.");
+            throw new IllegalArgumentException("behavior weight total must be 100.");
         }
     }
 
