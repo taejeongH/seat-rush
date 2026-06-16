@@ -178,11 +178,11 @@ public class CompetitionService {
                                 user,
                                 CompetitionStatus.ABANDONED_QUEUE,
                                 "abandoned while waiting"
-                        ));
+                        )).then(Mono.empty());
                     }
-                    return waitUntilEnterable(user, scheduleId);
+                    return waitUntilEnterable(user, scheduleId)
+                            .then(apiClient.enterQueue(scheduleId, user.accessToken()));
                 })
-                .flatMap(ignored -> apiClient.enterQueue(scheduleId, user.accessToken()))
                 .flatMap(entry -> {
                     String entryToken = entry.path("entryToken").asText();
                     update(user, CompetitionStatus.ENTERED, "entered seat selection");
