@@ -46,6 +46,7 @@ public class EntryTokenValidator {
                 jwt.getId(),
                 tokenUserId,
                 tokenScheduleId,
+                jwt.getClaimAsString("practiceSessionId"),
                 jwt.getExpiresAt()
         );
     }

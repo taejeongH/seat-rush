@@ -12,7 +12,8 @@ public record EntrySlotReleaseEvent(
         Long userId,
         String entryTokenId,
         EntrySlotReleaseReason reason,
-        LocalDateTime occurredAt
+        LocalDateTime occurredAt,
+        String practiceSessionId
 ) {
 
     public static EntrySlotReleaseEvent from(
@@ -27,7 +28,8 @@ public record EntrySlotReleaseEvent(
                 reservation.getUser().getId(),
                 reservation.getEntryTokenId(),
                 reason,
-                occurredAt
+                occurredAt,
+                null
         );
     }
 }

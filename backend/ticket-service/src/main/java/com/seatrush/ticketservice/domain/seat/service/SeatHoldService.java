@@ -12,6 +12,9 @@ import com.seatrush.ticketservice.domain.seat.repository.SeatHold;
 import com.seatrush.ticketservice.domain.seat.repository.SeatHoldRedisRepository;
 import com.seatrush.ticketservice.domain.seat.repository.SeatHoldResult;
 import com.seatrush.ticketservice.domain.seat.repository.SeatRepository;
+import com.seatrush.ticketservice.domain.seatlayout.entity.SeatLayoutSeat;
+import com.seatrush.ticketservice.domain.seatlayout.repository.SeatLayoutSeatRepository;
+import com.seatrush.ticketservice.domain.seatlayout.repository.SeatLayoutSectionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,17 +33,23 @@ import java.util.UUID;
 public class SeatHoldService {
 
     private final SeatRepository seatRepository;
+    private final SeatLayoutSectionRepository layoutSectionRepository;
+    private final SeatLayoutSeatRepository layoutSeatRepository;
     private final SeatHoldRedisRepository holdRedisRepository;
     private final EntryTokenValidator entryTokenValidator;
     private final SeatHoldProperties properties;
 
     public SeatHoldService(
             SeatRepository seatRepository,
+            SeatLayoutSectionRepository layoutSectionRepository,
+            SeatLayoutSeatRepository layoutSeatRepository,
             SeatHoldRedisRepository holdRedisRepository,
             EntryTokenValidator entryTokenValidator,
             SeatHoldProperties properties
     ) {
         this.seatRepository = seatRepository;
+        this.layoutSectionRepository = layoutSectionRepository;
+        this.layoutSeatRepository = layoutSeatRepository;
         this.holdRedisRepository = holdRedisRepository;
         this.entryTokenValidator = entryTokenValidator;
         this.properties = properties;
@@ -56,7 +65,11 @@ public class SeatHoldService {
     ) {
         entryTokenValidator.validateSchedule(claims, scheduleId);
         List<Long> seatIds = validateSeatIds(requestedSeatIds);
-        validateSeats(scheduleId, seatIds);
+        if (claims.practiceMode()) {
+            validateLayoutSeats(scheduleId, seatIds);
+        } else {
+            validateSeats(scheduleId, seatIds);
+        }
 
         Instant expiresAt = Instant.now().plus(properties.ttl());
         SeatHold hold = new SeatHold(
@@ -64,6 +77,7 @@ public class SeatHoldService {
                 scheduleId,
                 claims.userId(),
                 claims.jti(),
+                claims.practiceSessionId(),
                 seatIds,
                 expiresAt
         );
@@ -82,7 +96,7 @@ public class SeatHoldService {
      * hold 소유자와 entryToken을 확인한 뒤 유효한 선점 정보를 조회합니다.
      */
     public SeatHoldResponseDto get(String holdId, EntryTokenClaims claims) {
-        SeatHold hold = findHold(holdId);
+        SeatHold hold = findHold(holdId, claims.practiceSessionId());
         validateHoldAccess(hold, claims);
         return SeatHoldResponseDto.from(hold);
     }
@@ -91,7 +105,7 @@ public class SeatHoldService {
      * hold 소유자와 entryToken을 확인한 뒤 해당 hold의 좌석을 즉시 해제합니다.
      */
     public SeatHoldResponseDto release(String holdId, EntryTokenClaims claims) {
-        SeatHold hold = findHold(holdId);
+        SeatHold hold = findHold(holdId, claims.practiceSessionId());
         validateHoldAccess(hold, claims);
 
         if (!holdRedisRepository.release(hold)) {
@@ -110,7 +124,7 @@ public class SeatHoldService {
             Duration ttl,
             Instant expiresAt
     ) {
-        SeatHold hold = findHold(holdId);
+        SeatHold hold = findHold(holdId, claims.practiceSessionId());
         validateHoldAccess(hold, claims);
 
         if (!holdRedisRepository.extendForReservation(
@@ -162,7 +176,28 @@ public class SeatHoldService {
     }
 
     private SeatHold findHold(String holdId) {
-        SeatHold hold = holdRedisRepository.findById(holdId);
+        return findHold(holdId, null);
+    }
+
+    private void validateLayoutSeats(Long seatLayoutId, List<Long> seatIds) {
+        List<SeatLayoutSeat> seats = layoutSeatRepository.findAllByIdIn(seatIds);
+        if (seats.size() != seatIds.size()) {
+            throw new CustomException(ErrorCode.SEAT_NOT_FOUND);
+        }
+
+        boolean invalidSeat = seats.stream().anyMatch(seat ->
+                !layoutSectionRepository.existsByIdAndLayoutId(
+                        seat.getSection().getId(),
+                        seatLayoutId
+                )
+        );
+        if (invalidSeat) {
+            throw new CustomException(ErrorCode.SEAT_NOT_AVAILABLE);
+        }
+    }
+
+    private SeatHold findHold(String holdId, String practiceSessionId) {
+        SeatHold hold = holdRedisRepository.findById(holdId, practiceSessionId);
         if (hold == null) {
             throw new CustomException(ErrorCode.SEAT_HOLD_NOT_FOUND);
         }
@@ -172,8 +207,16 @@ public class SeatHoldService {
     private void validateHoldAccess(SeatHold hold, EntryTokenClaims claims) {
         entryTokenValidator.validateSchedule(claims, hold.scheduleId());
         if (!hold.userId().equals(claims.userId())
-                || !hold.entryTokenId().equals(claims.jti())) {
+                || !hold.entryTokenId().equals(claims.jti())
+                || !samePracticeSession(hold.practiceSessionId(), claims.practiceSessionId())) {
             throw new CustomException(ErrorCode.SEAT_HOLD_ACCESS_DENIED);
         }
+    }
+
+    private boolean samePracticeSession(String holdPracticeSessionId, String tokenPracticeSessionId) {
+        if (holdPracticeSessionId == null || holdPracticeSessionId.isBlank()) {
+            return tokenPracticeSessionId == null || tokenPracticeSessionId.isBlank();
+        }
+        return holdPracticeSessionId.equals(tokenPracticeSessionId);
     }
 }
