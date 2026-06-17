@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Activity, ArrowLeft, CircleStop, Play, RefreshCw, Server,
   Trophy, Users,
@@ -8,7 +8,7 @@ import {
   competitionApi,
   type CompetitionSnapshot,
 } from './competition'
-import type { Concert, Schedule } from './types'
+import type { Schedule, SeatLayout } from './types'
 
 const formatDateTime = (value?: string | null) => value
   ? new Intl.DateTimeFormat('ko-KR', {
@@ -26,26 +26,28 @@ const sumStatuses = (
 ) => keys.reduce((total, key) => total + (statuses[key] ?? 0), 0)
 
 export function CompetitionMode({
-  concerts,
   snapshot,
   connected,
   onSnapshot,
   onStarted,
   onBack,
 }: {
-  concerts: Concert[]
   snapshot: CompetitionSnapshot
   connected: boolean
   onSnapshot: (snapshot: CompetitionSnapshot) => void
-  onStarted: (concertId: number, schedule: Schedule) => Promise<void>
+  onStarted: (
+    schedule: Schedule,
+    practiceSessionId: string
+  ) => Promise<void>
   onBack: () => void
 }) {
-  const [concertId, setConcertId] = useState('')
-  const [scheduleId, setScheduleId] = useState('')
-  const [schedules, setSchedules] = useState<Schedule[]>([])
   const [virtualUsers, setVirtualUsers] = useState(100)
   const [prepareConcurrency, setPrepareConcurrency] = useState(50)
-  const [joinJitterMillis, setJoinJitterMillis] = useState(1000)
+  const [joinJitterMillis, setJoinJitterMillis] = useState(0)
+  const [startDelaySeconds, setStartDelaySeconds] = useState(60)
+  const [practiceDurationMinutes, setPracticeDurationMinutes] = useState(30)
+  const [seatLayouts, setSeatLayouts] = useState<SeatLayout[]>([])
+  const [seatLayoutId, setSeatLayoutId] = useState<number | null>(null)
   const [behaviors, setBehaviors] = useState({
     abandonQueue: 5,
     abandonAfterEntry: 5,
@@ -58,23 +60,23 @@ export function CompetitionMode({
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    const loadAccountPool = async () => {
+    const loadInitialData = async () => {
       try {
-        const pool = await competitionApi.accountPool()
+        const [pool, layouts] = await Promise.all([
+          competitionApi.accountPool(),
+          api.seatLayouts(),
+        ])
         setStoredAccounts(pool.storedAccounts)
+        setSeatLayouts(layouts)
+        setSeatLayoutId((current) => current ?? layouts[0]?.seatLayoutId ?? null)
         setMessage('')
       } catch {
         setMessage('로컬 가상 사용자 생성기를 먼저 실행해주세요.')
       }
     }
 
-    void loadAccountPool()
+    void loadInitialData()
   }, [])
-
-  const selectedSchedule = useMemo(
-    () => schedules.find((schedule) => String(schedule.scheduleId) === scheduleId),
-    [scheduleId, schedules],
-  )
 
   const behaviorTotal = Object.values(behaviors)
     .reduce((total, value) => total + value, 0)
@@ -98,38 +100,37 @@ export function CompetitionMode({
     ? Math.round((snapshot.completedUsers / snapshot.totalUsers) * 100)
     : 0
 
-  const selectConcert = async (value: string) => {
-    setConcertId(value)
-    setScheduleId('')
-    setSchedules([])
-    if (!value) return
-
-    try {
-      setSchedules(await api.schedules(Number(value)))
-      setMessage('')
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : '회차 조회에 실패했습니다.')
-    }
-  }
-
   const start = async () => {
-    if (!selectedSchedule || behaviorTotal !== 100) return
+    const selectedLayout = seatLayouts.find((layout) => layout.seatLayoutId === seatLayoutId)
+    if (!selectedLayout || behaviorTotal !== 100) return
     setSubmitting(true)
     setMessage('')
     try {
-      const bookingOpenAt = new Date(selectedSchedule.bookingOpenAt)
-      const startAt = bookingOpenAt > new Date() ? bookingOpenAt : new Date()
+      const practiceSessionId = crypto.randomUUID()
       const nextSnapshot = await competitionApi.start({
-        scheduleId: selectedSchedule.scheduleId,
+        seatLayoutId: selectedLayout.seatLayoutId,
+        practiceSessionId,
         virtualUsers,
-        startAt: startAt.toISOString(),
+        countdownSeconds: startDelaySeconds,
+        practiceDurationMinutes,
         prepareConcurrency,
         joinJitterMillis,
         behaviors,
       })
       onSnapshot(nextSnapshot)
       setStoredAccounts((await competitionApi.accountPool()).storedAccounts)
-      await onStarted(Number(concertId), selectedSchedule)
+      const bookingOpenAt = new Date(Date.now() + startDelaySeconds * 1000).toISOString()
+      const bookingCloseAt = new Date(
+        Date.now() + (startDelaySeconds + practiceDurationMinutes * 60) * 1000,
+      ).toISOString()
+      const practiceSchedule: Schedule = {
+        scheduleId: selectedLayout.seatLayoutId,
+        performanceAt: bookingCloseAt,
+        bookingOpenAt,
+        bookingCloseAt,
+        status: 'UPCOMING',
+      }
+      await onStarted(practiceSchedule, practiceSessionId)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '경쟁을 시작하지 못했습니다.')
     } finally {
@@ -141,6 +142,12 @@ export function CompetitionMode({
     setSubmitting(true)
     try {
       await competitionApi.stop()
+      if (snapshot.practiceSessionId) {
+        await Promise.allSettled([
+          api.deletePracticeSession(snapshot.practiceSessionId),
+          api.deletePracticeQueueSession(snapshot.practiceSessionId),
+        ])
+      }
       onSnapshot(await competitionApi.status())
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '경쟁을 중지하지 못했습니다.')
@@ -178,28 +185,18 @@ export function CompetitionMode({
           </div>
 
           <div className="competition-form">
-            <label className="form-field">
-              <span>공연</span>
-              <select value={concertId} disabled={running}
-                onChange={(event) => void selectConcert(event.target.value)}>
-                <option value="">공연을 선택하세요</option>
-                {concerts.map((concert) => (
-                  <option key={concert.concertId} value={concert.concertId}>
-                    {concert.title} · {concert.venue}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="practice-template-note">
+              <strong>가상 연습 회차</strong>
+              <span>기존 좌석 구조를 템플릿으로 사용하고, 대기열과 예매 결과는 연습 데이터로만 분리됩니다.</span>
+            </div>
 
             <label className="form-field">
-              <span>회차</span>
-              <select value={scheduleId} disabled={!concertId || running}
-                onChange={(event) => setScheduleId(event.target.value)}>
-                <option value="">회차를 선택하세요</option>
-                {schedules.map((schedule) => (
-                  <option key={schedule.scheduleId} value={schedule.scheduleId}>
-                    공연 {formatDateTime(schedule.performanceAt)}
-                    {' · '}오픈 {formatDateTime(schedule.bookingOpenAt)}
+              <span>좌석 배치</span>
+              <select value={seatLayoutId ?? ''} disabled={running}
+                onChange={(event) => setSeatLayoutId(Number(event.target.value))}>
+                {seatLayouts.map((layout) => (
+                  <option key={layout.seatLayoutId} value={layout.seatLayoutId}>
+                    {layout.name} · {layout.totalSeatCount.toLocaleString()}석
                   </option>
                 ))}
               </select>
@@ -210,6 +207,10 @@ export function CompetitionMode({
                 disabled={running} onChange={setVirtualUsers} />
               <NumberField label="계정 준비 동시성" value={prepareConcurrency} min={1} max={500}
                 disabled={running} onChange={setPrepareConcurrency} />
+              <NumberField label="준비 완료 후 카운트다운(초)" value={startDelaySeconds} min={0} max={3600}
+                disabled={running} onChange={setStartDelaySeconds} />
+              <NumberField label="연습 오픈 시간(분)" value={practiceDurationMinutes} min={1} max={180}
+                disabled={running} onChange={setPracticeDurationMinutes} />
               <NumberField label="진입 분산 시간(ms)" value={joinJitterMillis} min={0} max={30000}
                 disabled={running} onChange={setJoinJitterMillis} />
             </div>
@@ -244,7 +245,7 @@ export function CompetitionMode({
                 </button>
               ) : (
                 <button className="primary-button"
-                  disabled={!connected || !selectedSchedule || behaviorTotal !== 100 || submitting}
+                  disabled={!connected || !seatLayoutId || behaviorTotal !== 100 || submitting}
                   onClick={() => void start()}>
                   <Play size={17} /> 경쟁 시작
                 </button>

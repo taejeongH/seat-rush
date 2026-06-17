@@ -16,7 +16,15 @@ import type {
 } from './types'
 import './App.css'
 
-type View = 'concerts' | 'competition' | 'schedule' | 'queue' | 'seats' | 'payment' | 'result'
+type View =
+  | 'concerts'
+  | 'competition'
+  | 'schedule'
+  | 'practice-wait'
+  | 'queue'
+  | 'seats'
+  | 'payment'
+  | 'result'
 type AuthMode = 'login' | 'signup'
 
 const posterFallbacks = [
@@ -29,7 +37,8 @@ const initialCompetitionSnapshot: CompetitionSnapshot = {
   runId: null,
   status: 'IDLE',
   gatewayBaseUrl: '',
-  scheduleId: null,
+  seatLayoutId: null,
+  practiceSessionId: null,
   totalUsers: 0,
   completedUsers: 0,
   startAt: null,
@@ -53,6 +62,13 @@ const formatScheduleDeadline = (value: string) =>
 
 const formatPrice = (value: number) =>
   new Intl.NumberFormat('ko-KR').format(value) + '원'
+
+const formatCountdown = (millis: number) => {
+  const totalSeconds = Math.max(0, Math.ceil(millis / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
+}
 
 const statusLabel: Record<Schedule['status'], string> = {
   UPCOMING: '오픈 예정',
@@ -90,6 +106,9 @@ export default function App() {
   const [hold, setHold] = useState<SeatHold | null>(null)
   const [reservation, setReservation] = useState<Reservation | null>(null)
   const [paymentId, setPaymentId] = useState('')
+  const [practiceSessionId, setPracticeSessionId] = useState<string | null>(null)
+  const [practiceStartAt, setPracticeStartAt] = useState<string | null>(null)
+  const [practiceCountdownMillis, setPracticeCountdownMillis] = useState(0)
   const [paymentPreparation, setPaymentPreparation] = useState<
     'IDLE' | 'PROCESSING' | 'READY' | 'SUCCESS' | 'FAILED'
   >('IDLE')
@@ -125,7 +144,7 @@ export default function App() {
     const handlePopState = (event: PopStateEvent) => {
       const nextView = event.state?.seatRushView
       const availableViews: View[] = [
-        'concerts', 'competition', 'schedule', 'queue', 'seats', 'payment', 'result',
+        'concerts', 'competition', 'schedule', 'practice-wait', 'queue', 'seats', 'payment', 'result',
       ]
       setView(availableViews.includes(nextView) ? nextView : 'concerts')
       setError('')
@@ -153,6 +172,37 @@ export default function App() {
   }, [handleError])
 
   useEffect(() => {
+    if (view !== 'practice-wait' || !schedule || !practiceSessionId || !practiceStartAt) {
+      return
+    }
+
+    const updateCountdown = () => {
+      const remaining = new Date(practiceStartAt).getTime() - Date.now()
+      setPracticeCountdownMillis(Math.max(0, remaining))
+
+    }
+
+    updateCountdown()
+    const timer = window.setInterval(updateCountdown, 250)
+    return () => window.clearInterval(timer)
+  }, [practiceSessionId, practiceStartAt, schedule, user, view])
+
+  useEffect(() => {
+    if (
+      !practiceSessionId
+      || competitionSnapshot.practiceSessionId !== practiceSessionId
+      || !competitionSnapshot.startAt
+    ) {
+      return
+    }
+
+    setPracticeStartAt(competitionSnapshot.startAt)
+    setPracticeCountdownMillis(
+      Math.max(0, new Date(competitionSnapshot.startAt).getTime() - Date.now()),
+    )
+  }, [competitionSnapshot.practiceSessionId, competitionSnapshot.startAt, practiceSessionId])
+
+  useEffect(() => {
     let eventSource: EventSource | null = null
 
     const connectCompetitionGenerator = async () => {
@@ -178,21 +228,26 @@ export default function App() {
     if (view !== 'queue' || !schedule || queue?.status === 'ENTERABLE') return
     const timer = window.setInterval(async () => {
       try {
-        setQueue(await api.queuePosition(schedule.scheduleId))
+        setQueue(practiceSessionId
+          ? await api.practiceQueuePosition(practiceSessionId, schedule.scheduleId)
+          : await api.queuePosition(schedule.scheduleId))
       } catch (caught) {
         handleError(caught)
       }
     }, 1500)
     return () => window.clearInterval(timer)
-  }, [handleError, view, schedule, queue?.status])
+  }, [handleError, view, schedule, queue?.status, practiceSessionId])
 
   useEffect(() => {
     if (view !== 'queue' || !schedule || queue?.status === 'ENTERABLE') return
     const timer = window.setInterval(() => {
-      void api.queueHeartbeat(schedule.scheduleId).catch(() => undefined)
+      const heartbeat = practiceSessionId
+        ? api.practiceQueueHeartbeat(practiceSessionId, schedule.scheduleId)
+        : api.queueHeartbeat(schedule.scheduleId)
+      void heartbeat.catch(() => undefined)
     }, 10000)
     return () => window.clearInterval(timer)
-  }, [view, schedule, queue?.status])
+  }, [view, schedule, queue?.status, practiceSessionId])
 
   useEffect(() => {
     if (view !== 'payment' || !reservation) return
@@ -203,11 +258,15 @@ export default function App() {
 
     const prepare = async () => {
       try {
-        const requested = await api.requestPayment(reservation.reservationId)
+        const requested = practiceSessionId
+          ? await api.requestPracticePayment(practiceSessionId, reservation.reservationId)
+          : await api.requestPayment(reservation.reservationId)
         setPaymentId(requested.paymentId)
 
         for (let attempt = 0; attempt < 30; attempt += 1) {
-          const preparation = await api.paymentPreparation(requested.paymentId)
+          const preparation = practiceSessionId
+            ? await api.practicePaymentPreparation(practiceSessionId, requested.paymentId)
+            : await api.paymentPreparation(requested.paymentId)
           setPaymentPreparation(preparation.status)
           if (preparation.status !== 'PROCESSING') return
           await new Promise((resolve) => window.setTimeout(resolve, 400))
@@ -220,7 +279,7 @@ export default function App() {
     }
 
     void prepare()
-  }, [handleError, view, reservation])
+  }, [handleError, view, reservation, practiceSessionId])
 
   const selectConcert = async (selected: Concert) => {
     setLoading(true)
@@ -241,19 +300,25 @@ export default function App() {
   }
 
   const continueAfterCompetitionStart = async (
-    concertId: number,
     selectedSchedule: Schedule,
+    nextPracticeSessionId: string,
   ) => {
     setLoading(true)
     try {
-      const [detail, scheduleList] = await Promise.all([
-        api.concert(concertId),
-        api.schedules(concertId),
-      ])
-      setConcert(detail)
-      setSchedules(scheduleList)
+      setConcert({
+        concertId: 0,
+        title: 'Seat Rush Practice',
+        venue: '가상 티켓팅 연습장',
+        posterUrl: posterFallbacks[0],
+        description: '가상 사용자와 함께 실제 티켓팅 흐름을 연습하는 회차입니다.',
+      })
+      setSchedules([selectedSchedule])
       setSchedule(selectedSchedule)
-      navigate('schedule')
+      setPracticeSessionId(nextPracticeSessionId)
+      setPracticeStartAt(null)
+      setPracticeCountdownMillis(0)
+      if (!user) setAuthOpen(true)
+      navigate('practice-wait')
     } catch (caught) {
       handleError(caught)
     } finally {
@@ -265,13 +330,32 @@ export default function App() {
     setActionLoading(true)
     setError('')
     try {
-      setQueue(await api.joinQueue(selected.scheduleId))
+      setQueue(practiceSessionId
+        ? await api.joinPracticeQueue(practiceSessionId, selected.scheduleId)
+        : await api.joinQueue(selected.scheduleId))
       navigate('queue')
     } catch (caught) {
       handleError(caught)
     } finally {
       setActionLoading(false)
     }
+  }
+
+  const tryJoinPracticeQueue = () => {
+    if (!schedule) return
+    if (!user) {
+      setAuthOpen(true)
+      return
+    }
+    if (!practiceStartAt) {
+      window.alert('가상 사용자를 준비하고 있습니다. 잠시 후 다시 시도해주세요.')
+      return
+    }
+    if (Date.now() < new Date(practiceStartAt).getTime()) {
+      window.alert('아직 입장 시간이 아닙니다.')
+      return
+    }
+    void joinScheduleQueue(schedule)
   }
 
   const startQueue = (selected: Schedule) => {
@@ -287,15 +371,30 @@ export default function App() {
     if (!schedule) return
     setActionLoading(true)
     try {
-      const issued = await api.enterQueue(schedule.scheduleId)
-      const sectionList = await api.sections(schedule.scheduleId, issued.entryToken)
+      const issued = practiceSessionId
+        ? await api.enterPracticeQueue(practiceSessionId, schedule.scheduleId)
+        : await api.enterQueue(schedule.scheduleId)
+      const sectionList = practiceSessionId
+        ? await api.practiceSections(
+            practiceSessionId,
+            schedule.scheduleId,
+            issued.entryToken,
+          )
+        : await api.sections(schedule.scheduleId, issued.entryToken)
       setEntryToken(issued.entryToken)
       setSections(sectionList)
       setSection(sectionList[0] ?? null)
       if (sectionList[0]) {
-        setSeats(await api.seats(
-          schedule.scheduleId, sectionList[0].sectionId, issued.entryToken,
-        ))
+        setSeats(practiceSessionId
+          ? await api.practiceSeats(
+              practiceSessionId,
+              schedule.scheduleId,
+              sectionList[0].sectionId,
+              issued.entryToken,
+            )
+          : await api.seats(
+              schedule.scheduleId, sectionList[0].sectionId, issued.entryToken,
+            ))
       }
       navigate('seats', 'replace')
     } catch (caught) {
@@ -324,7 +423,14 @@ export default function App() {
     try {
       setSection(next)
       setSelectedSeatIds([])
-      setSeats(await api.seats(schedule.scheduleId, next.sectionId, entryToken))
+      setSeats(practiceSessionId
+        ? await api.practiceSeats(
+            practiceSessionId,
+            schedule.scheduleId,
+            next.sectionId,
+            entryToken,
+          )
+        : await api.seats(schedule.scheduleId, next.sectionId, entryToken))
     } catch (caught) {
       handleError(caught)
     } finally {
@@ -348,7 +454,9 @@ export default function App() {
       const nextHold = await api.holdSeats(
         schedule.scheduleId, selectedSeatIds, entryToken,
       )
-      const nextReservation = await api.createReservation(nextHold.holdId, entryToken)
+      const nextReservation = practiceSessionId
+        ? await api.createPracticeReservation(nextHold.holdId, entryToken)
+        : await api.createReservation(nextHold.holdId, entryToken)
       setHold(nextHold)
       setReservation(nextReservation)
       navigate('payment')
@@ -364,11 +472,17 @@ export default function App() {
     setActionLoading(true)
     setError('')
     try {
-      await api.completePayment(paymentId, result)
+      if (practiceSessionId) {
+        await api.completePracticePayment(practiceSessionId, paymentId, result)
+      } else {
+        await api.completePayment(paymentId, result)
+      }
 
       let finalReservation = reservation
       for (let attempt = 0; attempt < 20; attempt += 1) {
-        finalReservation = await api.reservation(reservation.reservationId)
+        finalReservation = practiceSessionId
+          ? await api.practiceReservation(practiceSessionId, reservation.reservationId)
+          : await api.reservation(reservation.reservationId)
         if (!['PENDING_PAYMENT', 'PAYMENT_PROCESSING'].includes(finalReservation.status)) {
           break
         }
@@ -384,6 +498,12 @@ export default function App() {
   }
 
   const reset = () => {
+    if (practiceSessionId) {
+      void Promise.allSettled([
+        api.deletePracticeSession(practiceSessionId),
+        api.deletePracticeQueueSession(practiceSessionId),
+      ])
+    }
     navigate('concerts')
     setConcert(null)
     setSchedule(null)
@@ -396,6 +516,9 @@ export default function App() {
     setHold(null)
     setReservation(null)
     setPaymentId('')
+    setPracticeSessionId(null)
+    setPracticeStartAt(null)
+    setPracticeCountdownMillis(0)
     setPaymentPreparation('IDLE')
     paymentInitializationRef.current = null
     autoEnteringScheduleRef.current = null
@@ -450,7 +573,6 @@ export default function App() {
           <ConcertList concerts={concerts} onSelect={selectConcert} />
         ) : view === 'competition' ? (
           <CompetitionMode
-            concerts={concerts}
             snapshot={competitionSnapshot}
             connected={competitionConnected}
             onSnapshot={setCompetitionSnapshot}
@@ -464,6 +586,17 @@ export default function App() {
               {view === 'schedule' && (
                 <ScheduleSelection schedules={schedules} actionLoading={actionLoading}
                   onBack={reset} onSelect={startQueue} />
+              )}
+              {view === 'practice-wait' && schedule && (
+                <PracticeWaitView
+                  snapshot={competitionSnapshot}
+                  schedule={schedule}
+                  countdownMillis={practiceCountdownMillis}
+                  loggedIn={Boolean(user)}
+                  actionLoading={actionLoading}
+                  onLogin={() => setAuthOpen(true)}
+                  onJoin={tryJoinPracticeQueue}
+                />
               )}
               {view === 'queue' && queue && (
                 <QueueView queue={queue} actionLoading={actionLoading} onEnter={enter} />
@@ -501,6 +634,9 @@ export default function App() {
           onAuthenticated={(authenticated) => {
             setUser(authenticated)
             setAuthOpen(false)
+            if (schedule && view === 'practice-wait') {
+              return
+            }
             if (schedule && isScheduleOpen(schedule)) void joinScheduleQueue(schedule)
           }} />
       )}
@@ -616,6 +752,80 @@ function ScheduleSelection({ schedules, actionLoading, onBack, onSelect }: {
         })}
       </div>
     </>
+  )
+}
+
+function PracticeWaitView({
+  snapshot,
+  schedule,
+  countdownMillis,
+  loggedIn,
+  actionLoading,
+  onLogin,
+  onJoin,
+}: {
+  snapshot: CompetitionSnapshot
+  schedule: Schedule
+  countdownMillis: number
+  loggedIn: boolean
+  actionLoading: boolean
+  onLogin: () => void
+  onJoin: () => void
+}) {
+  const ready = snapshot.userStatuses.READY ?? 0
+  const preparing = snapshot.userStatuses.PREPARING ?? 0
+  const total = snapshot.totalUsers
+  const readyRatio = total ? Math.round((ready / total) * 100) : 0
+  const countdownStarted = Boolean(snapshot.startAt)
+  const startNow = countdownStarted && countdownMillis <= 0
+  const displayedOpenAt = snapshot.startAt ?? schedule.bookingOpenAt
+
+  return (
+    <div className="practice-wait-stage">
+      <p className="eyebrow">Practice mode</p>
+      <h2>
+        {startNow
+          ? '연습 회차가 열렸습니다'
+          : countdownStarted
+            ? '연습 티켓팅 시작을 기다리고 있습니다'
+            : '가상 사용자를 준비하고 있습니다'}
+      </h2>
+      <div className="practice-countdown">
+        {countdownStarted ? formatCountdown(countdownMillis) : 'READY'}
+      </div>
+      <p className="muted">
+        모든 가상 사용자가 로그인 준비를 마치면 1분 카운트다운 후 대기열이 열립니다.
+      </p>
+
+      <div className="practice-schedule-card">
+        <span>가상 연습 회차</span>
+        <strong>{formatDate(displayedOpenAt)}</strong>
+        <small>{startNow ? '입장 가능' : countdownStarted ? '오픈 대기 중' : '가상 사용자 준비 중'}</small>
+      </div>
+
+      <div className="practice-ready-panel">
+        <div>
+          <span>가상 사용자 준비</span>
+          <strong>{ready.toLocaleString()} / {total.toLocaleString()}</strong>
+        </div>
+        <div className="queue-track"><span style={{ width: `${readyRatio}%` }} /></div>
+        <small>
+          {preparing > 0
+            ? `${preparing.toLocaleString()}명이 로그인 준비 중입니다.`
+            : '준비된 사용자는 시작 시각까지 대기합니다.'}
+        </small>
+      </div>
+
+      {!loggedIn ? (
+        <button className="primary-button" onClick={onLogin}>
+          <UserRound size={17} /> 로그인하고 같이 입장하기
+        </button>
+      ) : (
+        <button className="primary-button" disabled={actionLoading} onClick={onJoin}>
+          <Ticket size={17} /> {actionLoading ? '대기열 입장 요청 중입니다' : '연습 회차 입장하기'}
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -791,7 +1001,7 @@ function BookingSummary({ concert, schedule, reservation }: {
 }
 
 function FlowSteps({ view }: { view: View }) {
-  const order: View[] = ['schedule', 'queue', 'seats', 'payment', 'result']
+  const order: View[] = ['schedule', 'practice-wait', 'queue', 'seats', 'payment', 'result']
   const current = order.indexOf(view)
   return <div className="stepper" aria-label="예매 진행 단계">
     {order.map((step, index) =>

@@ -40,6 +40,14 @@ export type Schedule = {
   status: 'UPCOMING' | 'BOOKING_OPEN' | 'BOOKING_CLOSED' | 'CANCELED'
 }
 
+export type SeatLayout = {
+  seatLayoutId: number
+  name: string
+  venueName: string
+  description: string
+  totalSeatCount: number
+}
+
 export type QueuePosition = {
   scheduleId: number
   position: number

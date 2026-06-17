@@ -113,6 +113,35 @@ h3 { margin-bottom: 6px; font-size: 17px; }
   justify-content: center; text-align: center;
 }
 .queue-number { margin: 18px 0 4px; font-size: 64px; font-weight: 850; line-height: 1; }
+.practice-wait-stage {
+  display: flex; min-height: 420px; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center;
+}
+.practice-countdown {
+  margin: 18px 0 8px; font-size: clamp(56px, 10vw, 96px);
+  font-weight: 900; line-height: 1; color: #171717;
+}
+.practice-ready-panel {
+  width: min(440px, 100%); margin: 26px 0; border: 1px solid #dedfd9;
+  border-radius: 8px; padding: 16px; background: #fafaf8; text-align: left;
+}
+.practice-schedule-card {
+  display: grid; gap: 7px; width: min(440px, 100%); margin-top: 20px;
+  border: 1px solid #dedfd9; border-radius: 8px; padding: 16px;
+  background: #fff; text-align: left;
+}
+.practice-schedule-card span {
+  color: #e8472d; font-size: 12px; font-weight: 850; text-transform: uppercase;
+}
+.practice-schedule-card strong { font-size: 20px; }
+.practice-schedule-card small { color: #71746c; }
+.practice-ready-panel > div:first-child {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+}
+.practice-ready-panel span { color: #666961; font-size: 13px; font-weight: 750; }
+.practice-ready-panel strong { font-size: 22px; }
+.practice-ready-panel .queue-track { width: 100%; margin: 12px 0; }
+.practice-ready-panel small { color: #71746c; }
 .queue-track {
   width: min(420px, 100%); height: 8px; margin: 24px 0; overflow: hidden;
   border-radius: 4px; background: #e7e8e3;
