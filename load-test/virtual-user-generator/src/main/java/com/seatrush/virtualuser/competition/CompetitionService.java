@@ -15,6 +15,8 @@ import reactor.util.retry.Retry;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -55,23 +57,32 @@ public class CompetitionService {
         String runId = UUID.randomUUID().toString();
         tracker.initialize(runId, request);
         List<VirtualUser> users = createUsers(request);
-        Instant tokenRequiredUntil = request.startAt().toInstant()
+        Instant tokenRequiredUntil = Instant.now()
+                .plus(Duration.ofMinutes(30))
                 .plus(properties.queueWaitTimeout())
                 .plus(properties.paymentWaitTimeout())
                 .plus(properties.tokenRefreshBuffer());
 
-        Instant preparationAt = request.startAt().toInstant()
-                .minus(properties.preparationLeadTime());
-        Disposable nextRun = delayUntil(preparationAt)
-                .thenMany(Flux.fromIterable(users)
+        Disposable nextRun = Flux.fromIterable(users)
                         .flatMap(
                                 user -> prepareUser(user, tokenRequiredUntil),
                                 request.prepareConcurrency()
-                        ))
+                        )
                 .collectList()
                 .flatMap(preparedUsers -> accountStore.save().thenReturn(preparedUsers))
-                .flatMapMany(preparedUsers -> waitUntil(request.startAt().toInstant())
-                        .thenMany(runPreparedUsers(preparedUsers, request)))
+                .flatMapMany(preparedUsers -> {
+                    OffsetDateTime startAt = OffsetDateTime.now(ZoneOffset.UTC)
+                            .plusSeconds(request.countdownSeconds());
+                    OffsetDateTime closeAt = startAt.plusMinutes(request.practiceDurationMinutes());
+                    return apiClient.createPracticeQueueSession(
+                                    request.seatLayoutId(),
+                                    request.practiceSessionId(),
+                                    startAt,
+                                    closeAt
+                            )
+                            .then(waitUntil(startAt.toInstant()))
+                            .thenMany(runPreparedUsers(preparedUsers, request));
+                })
                 .doOnSubscribe(ignored -> tracker.changeStatus(CompetitionStatus.PREPARING))
                 .doOnComplete(() -> tracker.changeStatus(CompetitionStatus.COMPLETED))
                 .doOnError(error -> tracker.changeStatus(CompetitionStatus.FAILED))
@@ -165,8 +176,12 @@ public class CompetitionService {
             VirtualUser user,
             CompetitionStartRequestDto request
     ) {
-        long scheduleId = request.scheduleId();
-        return apiClient.joinQueue(scheduleId, user.accessToken())
+        long seatLayoutId = request.seatLayoutId();
+        return apiClient.joinPracticeQueue(
+                        request.practiceSessionId(),
+                        seatLayoutId,
+                        user.accessToken()
+                )
                 .doOnNext(queue -> update(
                         user,
                         CompetitionStatus.WAITING,
@@ -180,8 +195,12 @@ public class CompetitionService {
                                 "abandoned while waiting"
                         )).then(Mono.empty());
                     }
-                    return waitUntilEnterable(user, scheduleId)
-                            .then(apiClient.enterQueue(scheduleId, user.accessToken()));
+                    return waitUntilEnterable(user, seatLayoutId, request.practiceSessionId())
+                            .then(apiClient.enterPracticeQueue(
+                                    request.practiceSessionId(),
+                                    seatLayoutId,
+                                    user.accessToken()
+                            ));
                 })
                 .flatMap(entry -> {
                     String entryToken = entry.path("entryToken").asText();
@@ -193,7 +212,12 @@ public class CompetitionService {
                                 "abandoned after entry"
                         )).then(Mono.empty());
                     }
-                    return think().then(holdSeats(user, scheduleId, entryToken));
+                    return think().then(holdSeats(
+                            user,
+                            request.practiceSessionId(),
+                            seatLayoutId,
+                            entryToken
+                    ));
                 })
                 .flatMap(context -> {
                     update(user, CompetitionStatus.HELD, "seat hold completed");
@@ -204,7 +228,7 @@ public class CompetitionService {
                                 "abandoned after hold"
                         )).then(Mono.empty());
                     }
-                    return think().then(apiClient.createReservation(
+                    return think().then(apiClient.createPracticeReservation(
                                     user.accessToken(),
                                     context.entryToken(),
                                     context.holdId()
@@ -216,7 +240,8 @@ public class CompetitionService {
                 })
                 .flatMap(context -> {
                     update(user, CompetitionStatus.RESERVED, "reservation created");
-                    return think().then(apiClient.requestPayment(
+                    return think().then(apiClient.requestPracticePayment(
+                                    request.practiceSessionId(),
                                     context.reservationId(),
                                     user.accessToken()
                             ))
@@ -225,15 +250,24 @@ public class CompetitionService {
                                     payment.path("paymentId").asText()
                             ));
                 })
-                .flatMap(context -> waitUntilPaymentReady(user, context.paymentId())
-                        .then(apiClient.completePayment(
+                .flatMap(context -> waitUntilPaymentReady(
+                                user,
+                                request.practiceSessionId(),
+                                context.paymentId()
+                        )
+                        .then(apiClient.completePracticePayment(
+                                request.practiceSessionId(),
                                 context.paymentId(),
                                 user.accessToken(),
                                 user.behavior() == CompetitionBehavior.PAYMENT_FAILURE
                                         ? "FAILED"
                                         : "SUCCESS"
                         ))
-                        .then(waitUntilReservationCompleted(user, context.reservationId())))
+                        .then(waitUntilReservationCompleted(
+                                user,
+                                request.practiceSessionId(),
+                                context.reservationId()
+                        )))
                 .flatMap(reservation -> {
                     String status = reservation.path("status").asText();
                     CompetitionStatus terminal =
@@ -249,27 +283,39 @@ public class CompetitionService {
                 ));
     }
 
-    private Mono<Void> waitUntilEnterable(VirtualUser user, long scheduleId) {
+    private Mono<Void> waitUntilEnterable(
+            VirtualUser user,
+            long seatLayoutId,
+            String practiceSessionId
+    ) {
         return pollUntilEnterable(
                 user,
-                scheduleId,
+                seatLayoutId,
+                practiceSessionId,
                 Instant.now().plus(properties.queueWaitTimeout())
         );
     }
 
     private Mono<HoldContext> holdSeats(
             VirtualUser user,
+            String practiceSessionId,
             long scheduleId,
             String entryToken
     ) {
-        return apiClient.getSections(scheduleId, user.accessToken(), entryToken)
+        return apiClient.getPracticeSections(
+                        practiceSessionId,
+                        scheduleId,
+                        user.accessToken(),
+                        entryToken
+                )
                 .flatMap(sections -> {
                     if (!sections.isArray() || sections.isEmpty()) {
                         return Mono.error(new IllegalStateException("seat sections not found."));
                     }
                     int sectionIndex = ThreadLocalRandom.current().nextInt(sections.size());
                     long sectionId = sections.get(sectionIndex).path("sectionId").asLong();
-                    return apiClient.getSeats(
+                    return apiClient.getPracticeSeats(
+                            practiceSessionId,
                             scheduleId,
                             sectionId,
                             user.accessToken(),
@@ -289,10 +335,7 @@ public class CompetitionService {
                     Collections.shuffle(availableSeatIds);
                     int count = Math.min(
                             availableSeatIds.size(),
-                            ThreadLocalRandom.current().nextInt(
-                                    1,
-                                    properties.maxSeatsPerUser() + 1
-                            )
+                            chooseSeatCount()
                     );
                     return apiClient.holdSeats(
                             scheduleId,
@@ -305,12 +348,32 @@ public class CompetitionService {
                         entryToken,
                         hold.path("holdId").asText()
                 ))
-                .retryWhen(Retry.max(properties.seatRetryCount() - 1));
+                .retryWhen(Retry.backoff(
+                        properties.seatRetryCount(),
+                        properties.seatRetryDelay()
+                ));
     }
 
-    private Mono<Void> waitUntilPaymentReady(VirtualUser user, String paymentId) {
+    private int chooseSeatCount() {
+        int maxSeats = Math.max(1, properties.maxSeatsPerUser());
+        int weightedPick = ThreadLocalRandom.current().nextInt(10);
+        int preferredCount = switch (weightedPick) {
+            case 0 -> 1;
+            case 1, 2 -> 2;
+            case 3, 4, 5 -> 3;
+            default -> 4;
+        };
+        return Math.min(maxSeats, preferredCount);
+    }
+
+    private Mono<Void> waitUntilPaymentReady(
+            VirtualUser user,
+            String practiceSessionId,
+            String paymentId
+    ) {
         return pollUntilPaymentReady(
                 user,
+                practiceSessionId,
                 paymentId,
                 Instant.now().plus(properties.paymentWaitTimeout())
         );
@@ -318,10 +381,12 @@ public class CompetitionService {
 
     private Mono<JsonNode> waitUntilReservationCompleted(
             VirtualUser user,
+            String practiceSessionId,
             long reservationId
     ) {
         return pollUntilReservationCompleted(
                 user,
+                practiceSessionId,
                 reservationId,
                 Instant.now().plus(properties.paymentWaitTimeout())
         );
@@ -329,14 +394,19 @@ public class CompetitionService {
 
     private Mono<Void> pollUntilEnterable(
             VirtualUser user,
-            long scheduleId,
+            long seatLayoutId,
+            String practiceSessionId,
             Instant deadline
     ) {
         if (Instant.now().isAfter(deadline)) {
             return Mono.error(new IllegalStateException("queue wait timeout"));
         }
 
-        return apiClient.getQueuePosition(scheduleId, user.accessToken())
+        return apiClient.getPracticeQueuePosition(
+                        practiceSessionId,
+                        seatLayoutId,
+                        user.accessToken()
+                )
                 .flatMap(position -> {
                     update(
                             user,
@@ -347,12 +417,18 @@ public class CompetitionService {
                         return Mono.empty();
                     }
                     return Mono.delay(properties.queuePollInterval())
-                            .then(pollUntilEnterable(user, scheduleId, deadline));
+                            .then(pollUntilEnterable(
+                                    user,
+                                    seatLayoutId,
+                                    practiceSessionId,
+                                    deadline
+                            ));
                 });
     }
 
     private Mono<Void> pollUntilPaymentReady(
             VirtualUser user,
+            String practiceSessionId,
             String paymentId,
             Instant deadline
     ) {
@@ -360,18 +436,24 @@ public class CompetitionService {
             return Mono.error(new IllegalStateException("payment preparation timeout"));
         }
 
-        return apiClient.getPayment(paymentId, user.accessToken())
+        return apiClient.getPracticePayment(practiceSessionId, paymentId, user.accessToken())
                 .flatMap(payment -> {
                     if ("READY".equals(payment.path("status").asText())) {
                         return Mono.empty();
                     }
                     return Mono.delay(properties.paymentPollInterval())
-                            .then(pollUntilPaymentReady(user, paymentId, deadline));
+                            .then(pollUntilPaymentReady(
+                                    user,
+                                    practiceSessionId,
+                                    paymentId,
+                                    deadline
+                            ));
                 });
     }
 
     private Mono<JsonNode> pollUntilReservationCompleted(
             VirtualUser user,
+            String practiceSessionId,
             long reservationId,
             Instant deadline
     ) {
@@ -379,7 +461,11 @@ public class CompetitionService {
             return Mono.error(new IllegalStateException("reservation completion timeout"));
         }
 
-        return apiClient.getReservation(reservationId, user.accessToken())
+        return apiClient.getPracticeReservation(
+                        practiceSessionId,
+                        reservationId,
+                        user.accessToken()
+                )
                 .flatMap(reservation -> {
                     String status = reservation.path("status").asText();
                     if (!"PENDING_PAYMENT".equals(status)
@@ -389,6 +475,7 @@ public class CompetitionService {
                     return Mono.delay(properties.paymentPollInterval())
                             .then(pollUntilReservationCompleted(
                                     user,
+                                    practiceSessionId,
                                     reservationId,
                                     deadline
                             ));
@@ -405,8 +492,10 @@ public class CompetitionService {
     }
 
     private Mono<Long> waitUntil(Instant startAt) {
-        tracker.changeStatus(CompetitionStatus.READY);
-        return delayUntil(startAt);
+        return Mono.defer(() -> {
+            tracker.markReady(OffsetDateTime.ofInstant(startAt, ZoneOffset.UTC));
+            return delayUntil(startAt);
+        });
     }
 
     private Mono<Long> delayUntil(Instant targetAt) {

@@ -8,6 +8,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.Map;
 
 @Component
@@ -43,19 +44,72 @@ public class SeatRushApiClient {
         ));
     }
 
-    public Mono<JsonNode> joinQueue(long scheduleId, String accessToken) {
+    public Mono<JsonNode> joinQueue(
+            long scheduleId,
+            String accessToken
+    ) {
         return post("/api/schedules/%d/queues/join".formatted(scheduleId),
                 accessToken, null, null);
     }
 
-    public Mono<JsonNode> getQueuePosition(long scheduleId, String accessToken) {
+    public Mono<JsonNode> getQueuePosition(
+            long scheduleId,
+            String accessToken
+    ) {
         return get("/api/schedules/%d/queues/me".formatted(scheduleId),
                 accessToken, null);
     }
 
-    public Mono<JsonNode> enterQueue(long scheduleId, String accessToken) {
+    public Mono<JsonNode> enterQueue(
+            long scheduleId,
+            String accessToken
+    ) {
         return post("/api/schedules/%d/queues/enter".formatted(scheduleId),
                 accessToken, null, null);
+    }
+
+    public Mono<JsonNode> joinPracticeQueue(
+            String practiceSessionId,
+            long seatLayoutId,
+            String accessToken
+    ) {
+        return post("/api/practice/sessions/%s/seat-layouts/%d/queues/join"
+                        .formatted(practiceSessionId, seatLayoutId),
+                accessToken, null, null);
+    }
+
+    public Mono<JsonNode> getPracticeQueuePosition(
+            String practiceSessionId,
+            long seatLayoutId,
+            String accessToken
+    ) {
+        return get("/api/practice/sessions/%s/seat-layouts/%d/queues/me"
+                        .formatted(practiceSessionId, seatLayoutId),
+                accessToken, null);
+    }
+
+    public Mono<JsonNode> enterPracticeQueue(
+            String practiceSessionId,
+            long seatLayoutId,
+            String accessToken
+    ) {
+        return post("/api/practice/sessions/%s/seat-layouts/%d/queues/enter"
+                        .formatted(practiceSessionId, seatLayoutId),
+                accessToken, null, null);
+    }
+
+    public Mono<JsonNode> createPracticeQueueSession(
+            long seatLayoutId,
+            String practiceSessionId,
+            OffsetDateTime bookingOpenAt,
+            OffsetDateTime bookingCloseAt
+    ) {
+        return post("/api/practice/queues/sessions", null, null, Map.of(
+                "seatLayoutId", seatLayoutId,
+                "practiceSessionId", practiceSessionId,
+                "bookingOpenAt", bookingOpenAt,
+                "bookingCloseAt", bookingCloseAt
+        ));
     }
 
     public Mono<JsonNode> getSections(long scheduleId, String accessToken, String entryToken) {
@@ -73,6 +127,31 @@ public class SeatRushApiClient {
                 accessToken, entryToken);
     }
 
+    public Mono<JsonNode> getPracticeSections(
+            String practiceSessionId,
+            long seatLayoutId,
+            String accessToken,
+            String entryToken
+    ) {
+        return get("/api/practice/sessions/%s/seat-layouts/%d/sections"
+                        .formatted(practiceSessionId, seatLayoutId),
+                accessToken,
+                entryToken);
+    }
+
+    public Mono<JsonNode> getPracticeSeats(
+            String practiceSessionId,
+            long seatLayoutId,
+            long sectionId,
+            String accessToken,
+            String entryToken
+    ) {
+        return get("/api/practice/sessions/%s/seat-layouts/%d/seats?sectionId=%d"
+                        .formatted(practiceSessionId, seatLayoutId, sectionId),
+                accessToken,
+                entryToken);
+    }
+
     public Mono<JsonNode> holdSeats(
             long scheduleId,
             String accessToken,
@@ -83,34 +162,60 @@ public class SeatRushApiClient {
                 accessToken, entryToken, Map.of("seatIds", seatIds));
     }
 
-    public Mono<JsonNode> createReservation(
+    public Mono<JsonNode> createPracticeReservation(
             String accessToken,
             String entryToken,
             String holdId
     ) {
-        return post("/api/reservations", accessToken, entryToken, Map.of("holdId", holdId));
+        return post("/api/practice/reservations",
+                accessToken, entryToken, Map.of("holdId", holdId));
     }
 
-    public Mono<JsonNode> requestPayment(long reservationId, String accessToken) {
-        return post("/api/reservations/%d/payments".formatted(reservationId),
-                accessToken, null, null);
+    public Mono<JsonNode> requestPracticePayment(
+            String practiceSessionId,
+            long reservationId,
+            String accessToken
+    ) {
+        return post(
+                "/api/practice/sessions/%s/reservations/%d/payments"
+                        .formatted(practiceSessionId, reservationId),
+                accessToken,
+                null,
+                null
+        );
     }
 
-    public Mono<JsonNode> getPayment(String paymentId, String accessToken) {
-        return get("/api/payments/%s".formatted(paymentId), accessToken, null);
+    public Mono<JsonNode> getPracticePayment(
+            String practiceSessionId,
+            String paymentId,
+            String accessToken
+    ) {
+        return get("/api/practice/sessions/%s/payments/%s"
+                        .formatted(practiceSessionId, paymentId),
+                accessToken,
+                null);
     }
 
-    public Mono<JsonNode> completePayment(
+    public Mono<JsonNode> completePracticePayment(
+            String practiceSessionId,
             String paymentId,
             String accessToken,
             String result
     ) {
-        return post("/api/payments/%s/complete".formatted(paymentId),
+        return post("/api/practice/sessions/%s/payments/%s/complete"
+                        .formatted(practiceSessionId, paymentId),
                 accessToken, null, Map.of("result", result));
     }
 
-    public Mono<JsonNode> getReservation(long reservationId, String accessToken) {
-        return get("/api/reservations/%d".formatted(reservationId), accessToken, null);
+    public Mono<JsonNode> getPracticeReservation(
+            String practiceSessionId,
+            long reservationId,
+            String accessToken
+    ) {
+        return get("/api/practice/sessions/%s/reservations/%d"
+                        .formatted(practiceSessionId, reservationId),
+                accessToken,
+                null);
     }
 
     private Mono<JsonNode> get(String path, String accessToken, String entryToken) {
@@ -157,7 +262,7 @@ public class SeatRushApiClient {
                             return Mono.error(new SeatRushApiException(
                                     response.statusCode().value(),
                                     body.path("code").asText("UNKNOWN"),
-                                    body.path("message").asText("요청을 처리하지 못했습니다.")
+                                    body.path("message").asText("request failed")
                             ));
                         })
         );
