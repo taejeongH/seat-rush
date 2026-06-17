@@ -105,15 +105,27 @@ public class EntryTokenRedisRepository {
             int admissionCapacity,
             long ttlMillis
     ) {
+        return issue(scheduleId, userId, entryToken, jti, admissionCapacity, ttlMillis, null);
+    }
+
+    public EntryTokenIssueResult issue(
+            Long scheduleId,
+            Long userId,
+            String entryToken,
+            String jti,
+            int admissionCapacity,
+            long ttlMillis,
+            String practiceSessionId
+    ) {
         List<Object> result = redisTemplate.execute(
                 ISSUE_ENTRY_TOKEN_SCRIPT,
                 List.of(
-                        QueueKey.waiting(scheduleId),
-                        QueueKey.activeEntries(scheduleId),
-                        EntryTokenKey.userToken(scheduleId, userId),
-                        QueueKey.scheduleState(scheduleId),
-                        QueueKey.session(scheduleId, userId),
-                        QueueKey.sessionExpirations(scheduleId)
+                        QueueKey.waiting(scheduleId, practiceSessionId),
+                        QueueKey.activeEntries(scheduleId, practiceSessionId),
+                        EntryTokenKey.userToken(scheduleId, userId, practiceSessionId),
+                        QueueKey.scheduleState(scheduleId, practiceSessionId),
+                        QueueKey.session(scheduleId, userId, practiceSessionId),
+                        QueueKey.sessionExpirations(scheduleId, practiceSessionId)
                 ),
                 userId.toString(),
                 Integer.toString(admissionCapacity),
@@ -149,11 +161,20 @@ public class EntryTokenRedisRepository {
             Long userId,
             String entryTokenId
     ) {
+        return releaseSlot(scheduleId, userId, entryTokenId, null);
+    }
+
+    public boolean releaseSlot(
+            Long scheduleId,
+            Long userId,
+            String entryTokenId,
+            String practiceSessionId
+    ) {
         Long removed = redisTemplate.execute(
                 RELEASE_ENTRY_SLOT_SCRIPT,
                 List.of(
-                        EntryTokenKey.userToken(scheduleId, userId),
-                        QueueKey.activeEntries(scheduleId)
+                        EntryTokenKey.userToken(scheduleId, userId, practiceSessionId),
+                        QueueKey.activeEntries(scheduleId, practiceSessionId)
                 ),
                 entryTokenId
         );

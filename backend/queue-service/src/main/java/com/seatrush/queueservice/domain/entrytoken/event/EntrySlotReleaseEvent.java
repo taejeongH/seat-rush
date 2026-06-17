@@ -10,6 +10,7 @@ public record EntrySlotReleaseEvent(
         Long userId,
         String entryTokenId,
         EntrySlotReleaseReason reason,
-        LocalDateTime occurredAt
+        LocalDateTime occurredAt,
+        String practiceSessionId
 ) {
 }

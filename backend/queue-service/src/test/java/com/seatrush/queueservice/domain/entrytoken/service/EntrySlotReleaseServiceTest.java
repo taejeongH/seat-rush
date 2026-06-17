@@ -30,18 +30,18 @@ class EntrySlotReleaseServiceTest {
     }
 
     /**
-     * Valid release events are delegated to Redis with schedule, user, and entryTokenId.
+     * Valid release events are delegated to Redis with schedule, user, entryTokenId, and practiceSessionId.
      */
     @Test
     void releaseEntrySlot() {
         EntrySlotReleaseEvent event = event("jti-1");
-        when(entryTokenRedisRepository.releaseSlot(1L, 10L, "jti-1"))
+        when(entryTokenRedisRepository.releaseSlot(1L, 10L, "jti-1", "practice-1"))
                 .thenReturn(true);
 
         boolean released = service.release(event);
 
         assertThat(released).isTrue();
-        verify(entryTokenRedisRepository).releaseSlot(1L, 10L, "jti-1");
+        verify(entryTokenRedisRepository).releaseSlot(1L, 10L, "jti-1", "practice-1");
     }
 
     /**
@@ -63,7 +63,8 @@ class EntrySlotReleaseServiceTest {
                 10L,
                 entryTokenId,
                 EntrySlotReleaseReason.PAYMENT_SUCCESS,
-                LocalDateTime.now()
+                LocalDateTime.now(),
+                "practice-1"
         );
     }
 }

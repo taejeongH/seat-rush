@@ -10,6 +10,8 @@ import com.seatrush.queueservice.domain.entrytoken.repository.EntryTokenIssueRes
 import com.seatrush.queueservice.domain.entrytoken.repository.EntryTokenIssueStatus;
 import com.seatrush.queueservice.domain.entrytoken.repository.EntryTokenRedisRepository;
 import com.seatrush.queueservice.domain.queue.config.QueueAdmissionProperties;
+import com.seatrush.queueservice.domain.queue.config.QueuePracticeProperties;
+import com.seatrush.queueservice.domain.queue.repository.QueueRedisRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -24,31 +26,50 @@ public class EntryTokenService {
     private final EntryTokenProvider entryTokenProvider;
     private final EntryTokenProperties properties;
     private final QueueAdmissionProperties admissionProperties;
+    private final QueuePracticeProperties practiceProperties;
+    private final QueueRedisRepository queueRedisRepository;
 
     public EntryTokenService(
             EntryTokenRedisRepository entryTokenRedisRepository,
             EntryTokenProvider entryTokenProvider,
             EntryTokenProperties properties,
-            QueueAdmissionProperties admissionProperties
+            QueueAdmissionProperties admissionProperties,
+            QueuePracticeProperties practiceProperties,
+            QueueRedisRepository queueRedisRepository
     ) {
         this.entryTokenRedisRepository = entryTokenRedisRepository;
         this.entryTokenProvider = entryTokenProvider;
         this.properties = properties;
         this.admissionProperties = admissionProperties;
+        this.practiceProperties = practiceProperties;
+        this.queueRedisRepository = queueRedisRepository;
     }
 
     /**
      * 입장 가능한 사용자에게 제한 시간 동안 사용할 entryToken을 발급합니다.
      */
     public EntryTokenIssueResponseDto issue(Long scheduleId, Long userId) {
-        EntryTokenCandidate candidate = entryTokenProvider.create(scheduleId, userId);
+        return issue(scheduleId, userId, null);
+    }
+
+    public EntryTokenIssueResponseDto issue(
+            Long scheduleId,
+            Long userId,
+            String practiceSessionId
+    ) {
+        EntryTokenCandidate candidate = entryTokenProvider.create(
+                scheduleId,
+                userId,
+                practiceSessionId
+        );
         EntryTokenIssueResult result = entryTokenRedisRepository.issue(
                 scheduleId,
                 userId,
                 candidate.token(),
                 candidate.jti(),
                 admissionProperties.capacity(),
-                properties.ttl().toMillis()
+                properties.ttl().toMillis(),
+                practiceSessionId
         );
 
         if (result.status() == EntryTokenIssueStatus.QUEUE_ENTRY_NOT_FOUND) {
@@ -66,6 +87,12 @@ public class EntryTokenService {
         if (result.status() == EntryTokenIssueStatus.QUEUE_NOT_OPEN) {
             throw new CustomException(ErrorCode.QUEUE_NOT_OPEN);
         }
+
+        queueRedisRepository.expirePracticeSessionKeys(
+                scheduleId,
+                practiceSessionId,
+                practiceProperties.dataTtl()
+        );
 
         return new EntryTokenIssueResponseDto(
                 scheduleId,
