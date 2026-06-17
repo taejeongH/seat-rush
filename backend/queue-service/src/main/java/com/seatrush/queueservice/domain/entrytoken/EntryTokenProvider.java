@@ -33,22 +33,28 @@ public class EntryTokenProvider {
      * Ticket Service가 자체 검증할 수 있는 짧은 수명의 JWT entryToken을 생성합니다.
      */
     public EntryTokenCandidate create(Long scheduleId, Long userId) {
+        return create(scheduleId, userId, null);
+    }
+
+    public EntryTokenCandidate create(Long scheduleId, Long userId, String practiceSessionId) {
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plus(properties.ttl());
         String jti = UUID.randomUUID().toString();
 
         JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256).build();
-        JwtClaimsSet claims = JwtClaimsSet.builder()
+        JwtClaimsSet.Builder claims = JwtClaimsSet.builder()
                 .issuer(properties.issuer())
                 .audience(java.util.List.of(properties.audience()))
                 .issuedAt(issuedAt)
                 .expiresAt(expiresAt)
                 .subject(userId.toString())
                 .id(jti)
-                .claim("scheduleId", scheduleId)
-                .build();
+                .claim("scheduleId", scheduleId);
+        if (practiceSessionId != null && !practiceSessionId.isBlank()) {
+            claims.claim("practiceSessionId", practiceSessionId);
+        }
 
-        String token = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
+        String token = jwtEncoder.encode(JwtEncoderParameters.from(header, claims.build())).getTokenValue();
         return new EntryTokenCandidate(token, jti, expiresAt);
     }
 }

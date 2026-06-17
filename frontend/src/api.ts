@@ -12,6 +12,7 @@ import type {
   Schedule,
   Seat,
   SeatHold,
+  SeatLayout,
   SeatSection,
   User,
 } from './types'
@@ -110,6 +111,9 @@ export const api = {
       false,
     ),
 
+  seatLayouts: () =>
+    request<SeatLayout[]>('/api/seat-layouts', {}, undefined, false),
+
   joinQueue: (scheduleId: number) =>
     request<QueuePosition & { alreadyJoined: boolean }>(
       `/api/schedules/${scheduleId}/queues/join`,
@@ -117,7 +121,9 @@ export const api = {
     ),
 
   queuePosition: (scheduleId: number) =>
-    request<QueuePosition>(`/api/schedules/${scheduleId}/queues/me`),
+    request<QueuePosition>(
+      `/api/schedules/${scheduleId}/queues/me`,
+    ),
 
   queueHeartbeat: (scheduleId: number) =>
     request<void>(
@@ -131,6 +137,29 @@ export const api = {
       { method: 'POST' },
     ),
 
+  joinPracticeQueue: (practiceSessionId: string, seatLayoutId: number) =>
+    request<QueuePosition & { alreadyJoined: boolean }>(
+      `/api/practice/sessions/${practiceSessionId}/seat-layouts/${seatLayoutId}/queues/join`,
+      { method: 'POST' },
+    ),
+
+  practiceQueuePosition: (practiceSessionId: string, seatLayoutId: number) =>
+    request<QueuePosition>(
+      `/api/practice/sessions/${practiceSessionId}/seat-layouts/${seatLayoutId}/queues/me`,
+    ),
+
+  practiceQueueHeartbeat: (practiceSessionId: string, seatLayoutId: number) =>
+    request<void>(
+      `/api/practice/sessions/${practiceSessionId}/seat-layouts/${seatLayoutId}/queues/heartbeat`,
+      { method: 'POST' },
+    ),
+
+  enterPracticeQueue: (practiceSessionId: string, seatLayoutId: number) =>
+    request<EntryTokenResult>(
+      `/api/practice/sessions/${practiceSessionId}/seat-layouts/${seatLayoutId}/queues/enter`,
+      { method: 'POST' },
+    ),
+
   sections: (scheduleId: number, entryToken: string) =>
     request<SeatSection[]>(
       `/api/schedules/${scheduleId}/sections`,
@@ -141,6 +170,29 @@ export const api = {
   seats: (scheduleId: number, sectionId: number, entryToken: string) =>
     request<Seat[]>(
       `/api/schedules/${scheduleId}/seats?sectionId=${sectionId}`,
+      {},
+      entryToken,
+    ),
+
+  practiceSections: (
+    practiceSessionId: string,
+    seatLayoutId: number,
+    entryToken: string,
+  ) =>
+    request<SeatSection[]>(
+      `/api/practice/sessions/${practiceSessionId}/seat-layouts/${seatLayoutId}/sections`,
+      {},
+      entryToken,
+    ),
+
+  practiceSeats: (
+    practiceSessionId: string,
+    seatLayoutId: number,
+    sectionId: number,
+    entryToken: string,
+  ) =>
+    request<Seat[]>(
+      `/api/practice/sessions/${practiceSessionId}/seat-layouts/${seatLayoutId}/seats?sectionId=${sectionId}`,
       {},
       entryToken,
     ),
@@ -159,8 +211,20 @@ export const api = {
       entryToken,
     ),
 
+  createPracticeReservation: (holdId: string, entryToken: string) =>
+    request<Reservation>(
+      '/api/practice/reservations',
+      postJson({ holdId }),
+      entryToken,
+    ),
+
   reservation: (reservationId: number) =>
     request<Reservation>(`/api/reservations/${reservationId}`),
+
+  practiceReservation: (practiceSessionId: string, reservationId: number) =>
+    request<Reservation>(
+      `/api/practice/sessions/${practiceSessionId}/reservations/${reservationId}`,
+    ),
 
   requestPayment: (reservationId: number) =>
     request<PaymentRequest>(
@@ -168,12 +232,45 @@ export const api = {
       { method: 'POST' },
     ),
 
+  requestPracticePayment: (practiceSessionId: string, reservationId: number) =>
+    request<PaymentRequest>(
+      `/api/practice/sessions/${practiceSessionId}/reservations/${reservationId}/payments`,
+      { method: 'POST' },
+    ),
+
   paymentPreparation: (paymentId: string) =>
     request<PaymentPreparation>(`/api/payments/${paymentId}`),
+
+  practicePaymentPreparation: (practiceSessionId: string, paymentId: string) =>
+    request<PaymentPreparation>(
+      `/api/practice/sessions/${practiceSessionId}/payments/${paymentId}`,
+    ),
 
   completePayment: (paymentId: string, result: 'SUCCESS' | 'FAILED') =>
     request<Payment>(
       `/api/payments/${paymentId}/complete`,
       postJson({ result }),
+    ),
+
+  completePracticePayment: (
+    practiceSessionId: string,
+    paymentId: string,
+    result: 'SUCCESS' | 'FAILED',
+  ) =>
+    request<Payment>(
+      `/api/practice/sessions/${practiceSessionId}/payments/${paymentId}/complete`,
+      postJson({ result }),
+    ),
+
+  deletePracticeSession: (practiceSessionId: string) =>
+    request<void>(
+      `/api/practice/sessions/${practiceSessionId}`,
+      { method: 'DELETE' },
+    ),
+
+  deletePracticeQueueSession: (practiceSessionId: string) =>
+    request<void>(
+      `/api/practice/queues/sessions/${practiceSessionId}`,
+      { method: 'DELETE' },
     ),
 }

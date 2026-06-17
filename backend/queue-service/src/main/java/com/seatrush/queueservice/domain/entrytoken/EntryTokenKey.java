@@ -6,11 +6,20 @@ package com.seatrush.queueservice.domain.entrytoken;
 public final class EntryTokenKey {
 
     private static final String USER_TOKEN_KEY_FORMAT = "entry-token:schedule:%d:user:%d";
+    private static final String PRACTICE_PREFIX_FORMAT = "practice:%s:";
 
     private EntryTokenKey() {
     }
 
     public static String userToken(Long scheduleId, Long userId) {
         return USER_TOKEN_KEY_FORMAT.formatted(scheduleId, userId);
+    }
+
+    public static String userToken(Long scheduleId, Long userId, String practiceSessionId) {
+        if (practiceSessionId == null || practiceSessionId.isBlank()) {
+            return userToken(scheduleId, userId);
+        }
+        return PRACTICE_PREFIX_FORMAT.formatted(practiceSessionId)
+                + userToken(scheduleId, userId);
     }
 }

@@ -22,8 +22,13 @@ spring:
                   - Authorization
                   - Content-Type
                   - X-Entry-Token
+                  - X-Practice-Session-Id
                 allow-credentials: true
           routes:
+            - id: queue-service-practice
+              uri: ${QUEUE_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/practice/queues/**,/api/practice/sessions/*/seat-layouts/*/queues/**
             - id: queue-service
               uri: ${QUEUE_SERVICE_URL:http://localhost:8082}
               predicates:
@@ -31,7 +36,7 @@ spring:
             - id: ticket-service
               uri: ${TICKET_SERVICE_URL:http://localhost:8081}
               predicates:
-                - Path=/api/auth/**,/api/users/**,/api/concerts/**,/api/admin/**,/api/schedules/**,/api/reservations/**
+                - Path=/api/auth/**,/api/users/**,/api/concerts/**,/api/seat-layouts/**,/api/admin/**,/api/schedules/**,/api/reservations/**,/api/practice/**
             - id: payment-service
               uri: ${PAYMENT_SERVICE_URL:http://localhost:8083}
               predicates:

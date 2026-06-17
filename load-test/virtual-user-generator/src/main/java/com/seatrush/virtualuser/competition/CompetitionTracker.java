@@ -9,6 +9,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.ArrayDeque;
 import java.util.EnumMap;
 import java.util.List;
@@ -30,6 +31,7 @@ public class CompetitionTracker {
     private String runId;
     private CompetitionStatus status = CompetitionStatus.IDLE;
     private CompetitionStartRequestDto request;
+    private OffsetDateTime startAt;
     private int completedUsers;
 
     public CompetitionTracker(VirtualUserProperties properties) {
@@ -42,6 +44,7 @@ public class CompetitionTracker {
     ) {
         runId = nextRunId;
         request = nextRequest;
+        startAt = null;
         status = CompetitionStatus.PREPARING;
         completedUsers = 0;
         userStatuses.clear();
@@ -81,12 +84,19 @@ public class CompetitionTracker {
         emit();
     }
 
+    public synchronized void markReady(OffsetDateTime nextStartAt) {
+        startAt = nextStartAt;
+        status = CompetitionStatus.READY;
+        emit();
+    }
+
     public synchronized CompetitionSnapshotResponseDto snapshot() {
         if (request == null) {
             return new CompetitionSnapshotResponseDto(
                     null,
                     CompetitionStatus.IDLE,
                     properties.gatewayBaseUrl(),
+                    null,
                     null,
                     0,
                     0,
@@ -106,10 +116,11 @@ public class CompetitionTracker {
                 runId,
                 status,
                 properties.gatewayBaseUrl(),
-                request.scheduleId(),
+                request.seatLayoutId(),
+                request.practiceSessionId(),
                 request.virtualUsers(),
                 completedUsers,
-                request.startAt(),
+                startAt,
                 Instant.now(),
                 statuses,
                 List.copyOf(recentEvents)

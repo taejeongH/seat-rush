@@ -4,19 +4,25 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
-import java.time.OffsetDateTime;
-
 public record CompetitionStartRequestDto(
         @NotNull
         @Min(1)
-        Long scheduleId,
+        Long seatLayoutId,
+
+        @NotNull
+        String practiceSessionId,
 
         @Min(1)
         @Max(10000)
         int virtualUsers,
 
-        @NotNull
-        OffsetDateTime startAt,
+        @Min(0)
+        @Max(3600)
+        int countdownSeconds,
+
+        @Min(1)
+        @Max(180)
+        int practiceDurationMinutes,
 
         @Min(1)
         @Max(500)

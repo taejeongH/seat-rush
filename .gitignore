@@ -3,6 +3,8 @@
 *.pem
 infra/backups/
 infra/.env.production
+.gradle-local/
+.gradle-check/
 
 # Virtual user generator local files
 load-test/virtual-user-generator/.gradle/

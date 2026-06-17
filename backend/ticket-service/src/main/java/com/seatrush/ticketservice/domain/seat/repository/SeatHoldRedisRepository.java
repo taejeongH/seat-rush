@@ -13,29 +13,17 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 좌석 선점 상태와 hold 메타데이터를 Redis에 저장하고 조회합니다.
+ * Stores seat hold state and hold metadata in Redis.
  */
 @Repository
 public class SeatHoldRedisRepository {
 
     private static final DefaultRedisScript<List> HOLD_SEATS_SCRIPT =
             new DefaultRedisScript<>("""
-                    -- KEYS[1..N]: 좌석별 선점 키
-                    -- KEYS[N+1]: hold 상세 정보 키
-                    -- ARGV[1]: holdId
-                    -- ARGV[2]: userId
-                    -- ARGV[3]: scheduleId
-                    -- ARGV[4]: entryTokenId
-                    -- ARGV[5]: TTL(ms)
-                    -- ARGV[6]: 쉼표로 연결한 전체 seatIds
-                    -- ARGV[7]: 만료 시각(epoch millis)
-                    -- ARGV[8..]: KEYS[1..N]과 같은 순서의 개별 seatId
-
                     local seatCount = #KEYS - 1
                     for index = 1, seatCount do
                         if redis.call('EXISTS', KEYS[index]) == 1 then
-                            -- 현재 좌석의 ID는 ARGV[7 + index]에 있습니다.
-                            return {0, ARGV[7 + index]}
+                            return {0, ARGV[8 + index]}
                         end
                     end
 
@@ -50,7 +38,8 @@ public class SeatHoldRedisRepository {
                         'scheduleId', ARGV[3],
                         'entryTokenId', ARGV[4],
                         'seatIds', ARGV[6],
-                        'expiresAt', ARGV[7]
+                        'expiresAt', ARGV[7],
+                        'practiceSessionId', ARGV[8]
                     )
                     redis.call('PEXPIRE', KEYS[#KEYS], ARGV[5])
                     return {1, ''}
@@ -58,10 +47,6 @@ public class SeatHoldRedisRepository {
 
     private static final DefaultRedisScript<Long> RELEASE_HOLD_SCRIPT =
             new DefaultRedisScript<>("""
-                    -- KEYS[1..N]: 좌석별 선점 키
-                    -- KEYS[N+1]: hold 상세 정보 키
-                    -- ARGV[1]: 해제할 holdId
-
                     local holdId = ARGV[1]
                     for index = 1, #KEYS - 1 do
                         if redis.call('GET', KEYS[index]) == holdId then
@@ -73,15 +58,6 @@ public class SeatHoldRedisRepository {
 
     private static final DefaultRedisScript<Long> EXTEND_HOLD_SCRIPT =
             new DefaultRedisScript<>("""
-                    -- KEYS[1..N]: 좌석별 선점 키
-                    -- KEYS[N+1]: hold 상세 정보 키
-                    -- ARGV[1]: holdId
-                    -- ARGV[2]: userId
-                    -- ARGV[3]: scheduleId
-                    -- ARGV[4]: entryTokenId
-                    -- ARGV[5]: 연장할 TTL(ms)
-                    -- ARGV[6]: 변경된 만료 시각(epoch millis)
-
                     local hold = redis.call(
                         'HMGET',
                         KEYS[#KEYS],
@@ -126,28 +102,29 @@ public class SeatHoldRedisRepository {
     }
 
     /**
-     * 모든 좌석이 비어 있을 때만 좌석 키와 hold 정보를 한 번에 저장합니다.
+     * Atomically holds all requested seats only if every seat is available.
      */
     @SuppressWarnings("unchecked")
     public SeatHoldResult hold(SeatHold hold, long ttlMillis) {
-        // KEYS[1..N]은 좌석별 선점 키이고 마지막 키는 hold 상세 정보 키입니다.
         List<String> keys = hold.seatIds().stream()
-                .map(seatId -> SeatHoldKey.seat(hold.scheduleId(), seatId))
+                .map(seatId -> SeatHoldKey.seat(
+                        hold.scheduleId(),
+                        seatId,
+                        hold.practiceSessionId()
+                ))
                 .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
-        keys.add(SeatHoldKey.hold(hold.holdId()));
+        keys.add(SeatHoldKey.hold(hold.holdId(), hold.practiceSessionId()));
 
-        // ARGV[1..7]은 hold 공통 정보이고 ARGV[8..]은 좌석 키와 같은 순서의 seatId입니다.
         List<String> arguments = new ArrayList<>();
-        arguments.add(hold.holdId());                                  // ARGV[1]
-        arguments.add(hold.userId().toString());                       // ARGV[2]
-        arguments.add(hold.scheduleId().toString());                   // ARGV[3]
-        arguments.add(hold.entryTokenId());                            // ARGV[4]
-        arguments.add(Long.toString(ttlMillis));                       // ARGV[5]
-        arguments.add(joinSeatIds(hold.seatIds()));                    // ARGV[6]
-        arguments.add(Long.toString(hold.expiresAt().toEpochMilli())); // ARGV[7]
-        hold.seatIds().forEach(
-                seatId -> arguments.add(seatId.toString())             // ARGV[8..]
-        );
+        arguments.add(hold.holdId());
+        arguments.add(hold.userId().toString());
+        arguments.add(hold.scheduleId().toString());
+        arguments.add(hold.entryTokenId());
+        arguments.add(Long.toString(ttlMillis));
+        arguments.add(joinSeatIds(hold.seatIds()));
+        arguments.add(Long.toString(hold.expiresAt().toEpochMilli()));
+        arguments.add(nullToBlank(hold.practiceSessionId()));
+        hold.seatIds().forEach(seatId -> arguments.add(seatId.toString()));
 
         List<Object> result = redisTemplate.execute(
                 HOLD_SEATS_SCRIPT,
@@ -156,7 +133,7 @@ public class SeatHoldRedisRepository {
         );
 
         if (result == null || result.size() != 2) {
-            throw new IllegalStateException("좌석 선점 결과를 확인할 수 없습니다.");
+            throw new IllegalStateException("seat hold result is unavailable.");
         }
 
         if (toLong(result.getFirst()) == 1) {
@@ -166,11 +143,18 @@ public class SeatHoldRedisRepository {
     }
 
     /**
-     * holdId에 해당하는 유효한 좌석 선점 정보를 조회합니다.
+     * Finds a production hold by id.
      */
     public SeatHold findById(String holdId) {
+        return findById(holdId, null);
+    }
+
+    /**
+     * Finds a hold by id within the optional practice namespace.
+     */
+    public SeatHold findById(String holdId, String practiceSessionId) {
         Map<Object, Object> values = redisTemplate.opsForHash()
-                .entries(SeatHoldKey.hold(holdId));
+                .entries(SeatHoldKey.hold(holdId, practiceSessionId));
         if (values.isEmpty()) {
             return null;
         }
@@ -180,13 +164,14 @@ public class SeatHoldRedisRepository {
                 Long.valueOf(values.get("scheduleId").toString()),
                 Long.valueOf(values.get("userId").toString()),
                 values.get("entryTokenId").toString(),
+                blankToNull(values.get("practiceSessionId")),
                 parseSeatIds(values.get("seatIds").toString()),
                 Instant.ofEpochMilli(Long.parseLong(values.get("expiresAt").toString()))
         );
     }
 
     /**
-     * hold 소유권과 모든 좌석 선점을 다시 확인한 뒤 결제 기한까지 TTL을 연장합니다.
+     * Extends a hold until the reservation payment deadline.
      */
     public boolean extendForReservation(
             SeatHold hold,
@@ -194,9 +179,13 @@ public class SeatHoldRedisRepository {
             Instant expiresAt
     ) {
         List<String> keys = hold.seatIds().stream()
-                .map(seatId -> SeatHoldKey.seat(hold.scheduleId(), seatId))
+                .map(seatId -> SeatHoldKey.seat(
+                        hold.scheduleId(),
+                        seatId,
+                        hold.practiceSessionId()
+                ))
                 .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
-        keys.add(SeatHoldKey.hold(hold.holdId()));
+        keys.add(SeatHoldKey.hold(hold.holdId(), hold.practiceSessionId()));
 
         Long result = redisTemplate.execute(
                 EXTEND_HOLD_SCRIPT,
@@ -210,19 +199,23 @@ public class SeatHoldRedisRepository {
         );
 
         if (result == null) {
-            throw new IllegalStateException("좌석 선점의 예매 귀속 결과를 확인할 수 없습니다.");
+            throw new IllegalStateException("seat hold extension result is unavailable.");
         }
         return result == 1;
     }
 
     /**
-     * hold에 속한 좌석 키가 현재 holdId를 가리킬 때만 선점을 해제합니다.
+     * Releases a hold and every seat key owned by that hold.
      */
     public boolean release(SeatHold hold) {
         List<String> keys = hold.seatIds().stream()
-                .map(seatId -> SeatHoldKey.seat(hold.scheduleId(), seatId))
+                .map(seatId -> SeatHoldKey.seat(
+                        hold.scheduleId(),
+                        seatId,
+                        hold.practiceSessionId()
+                ))
                 .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
-        keys.add(SeatHoldKey.hold(hold.holdId()));
+        keys.add(SeatHoldKey.hold(hold.holdId(), hold.practiceSessionId()));
 
         Long deleted = redisTemplate.execute(
                 RELEASE_HOLD_SCRIPT,
@@ -233,15 +226,26 @@ public class SeatHoldRedisRepository {
     }
 
     /**
-     * 좌석별 활성 선점 여부를 한 번에 조회합니다.
+     * Checks held seats in production namespace.
      */
     public Map<Long, Boolean> findHeldSeats(Long scheduleId, List<Long> seatIds) {
+        return findHeldSeats(scheduleId, seatIds, null);
+    }
+
+    /**
+     * Checks held seats in the optional practice namespace.
+     */
+    public Map<Long, Boolean> findHeldSeats(
+            Long scheduleId,
+            List<Long> seatIds,
+            String practiceSessionId
+    ) {
         if (seatIds.isEmpty()) {
             return Collections.emptyMap();
         }
 
         List<String> keys = seatIds.stream()
-                .map(seatId -> SeatHoldKey.seat(scheduleId, seatId))
+                .map(seatId -> SeatHoldKey.seat(scheduleId, seatId, practiceSessionId))
                 .toList();
         List<String> values = redisTemplate.opsForValue().multiGet(keys);
 
@@ -266,6 +270,17 @@ public class SeatHoldRedisRepository {
         return Arrays.stream(value.split(","))
                 .map(Long::valueOf)
                 .toList();
+    }
+
+    private String nullToBlank(String value) {
+        return value == null ? "" : value;
+    }
+
+    private String blankToNull(Object value) {
+        if (value == null || value.toString().isBlank()) {
+            return null;
+        }
+        return value.toString();
     }
 
     private long toLong(Object value) {

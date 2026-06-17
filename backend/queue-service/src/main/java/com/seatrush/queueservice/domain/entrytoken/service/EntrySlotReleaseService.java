@@ -21,7 +21,8 @@ public class EntrySlotReleaseService {
         return entryTokenRedisRepository.releaseSlot(
                 event.scheduleId(),
                 event.userId(),
-                event.entryTokenId()
+                event.entryTokenId(),
+                event.practiceSessionId()
         );
     }
 

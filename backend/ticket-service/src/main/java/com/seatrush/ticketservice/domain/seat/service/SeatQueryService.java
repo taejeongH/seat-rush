@@ -74,7 +74,11 @@ public class SeatQueryService {
 
         List<Seat> seats = seatRepository.findAllBySectionIdOrderByRowNameAscSeatNumberAsc(sectionId);
         List<Long> seatIds = seats.stream().map(Seat::getId).toList();
-        Map<Long, Boolean> heldSeats = holdRedisRepository.findHeldSeats(scheduleId, seatIds);
+        Map<Long, Boolean> heldSeats = holdRedisRepository.findHeldSeats(
+                scheduleId,
+                seatIds,
+                claims.practiceSessionId()
+        );
 
         return seats.stream()
                 .map(seat -> SeatResponseDto.from(

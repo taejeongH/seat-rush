@@ -6,7 +6,6 @@ import com.seatrush.virtualuser.config.VirtualUserProperties;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
-import java.time.OffsetDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -17,8 +16,10 @@ class CompetitionTrackerTest {
         CompetitionTracker tracker = new CompetitionTracker(properties());
         CompetitionStartRequestDto request = new CompetitionStartRequestDto(
                 1L,
+                "practice-test",
                 10,
-                OffsetDateTime.now().plusMinutes(1),
+                60,
+                30,
                 2,
                 1000,
                 new CompetitionStartRequestDto.BehaviorWeights(5, 5, 10, 10, 70)

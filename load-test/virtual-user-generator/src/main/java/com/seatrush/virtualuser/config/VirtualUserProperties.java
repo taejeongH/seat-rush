@@ -15,6 +15,7 @@ public record VirtualUserProperties(
         Duration actionDelayMin,
         Duration actionDelayMax,
         int seatRetryCount,
+        Duration seatRetryDelay,
         int maxSeatsPerUser,
         String accountPoolFile,
         String accountEmailDomain,

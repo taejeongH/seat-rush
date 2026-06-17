@@ -20,7 +20,8 @@ export type CompetitionSnapshot = {
   runId: string | null
   status: CompetitionStatus
   gatewayBaseUrl: string
-  scheduleId: number | null
+  seatLayoutId: number | null
+  practiceSessionId: string | null
   totalUsers: number
   completedUsers: number
   startAt: string | null
@@ -30,9 +31,11 @@ export type CompetitionSnapshot = {
 }
 
 export type CompetitionStartRequest = {
-  scheduleId: number
+  seatLayoutId: number
+  practiceSessionId: string
   virtualUsers: number
-  startAt: string
+  countdownSeconds: number
+  practiceDurationMinutes: number
   prepareConcurrency: number
   joinJitterMillis: number
   behaviors: {

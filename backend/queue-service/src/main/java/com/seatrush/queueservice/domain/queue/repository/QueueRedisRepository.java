@@ -5,7 +5,11 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Repository;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Map;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Redis Sorted Set을 사용해 회차별 대기열을 저장하고 조회합니다.
@@ -139,14 +143,23 @@ public class QueueRedisRepository {
      */
     @SuppressWarnings("unchecked")
     public QueueJoinResult join(Long scheduleId, Long userId, long sessionTtlMillis) {
+        return join(scheduleId, userId, sessionTtlMillis, null);
+    }
+
+    public QueueJoinResult join(
+            Long scheduleId,
+            Long userId,
+            long sessionTtlMillis,
+            String practiceSessionId
+    ) {
         List<Long> result = redisTemplate.execute(
                 JOIN_QUEUE_SCRIPT,
                 List.of(
-                        QueueKey.waiting(scheduleId),
-                        QueueKey.sequence(scheduleId),
-                        QueueKey.scheduleState(scheduleId),
-                        QueueKey.sessionExpirations(scheduleId),
-                        QueueKey.session(scheduleId, userId)
+                        QueueKey.waiting(scheduleId, practiceSessionId),
+                        QueueKey.sequence(scheduleId, practiceSessionId),
+                        QueueKey.scheduleState(scheduleId, practiceSessionId),
+                        QueueKey.sessionExpirations(scheduleId, practiceSessionId),
+                        QueueKey.session(scheduleId, userId, practiceSessionId)
                 ),
                 userId.toString(),
                 Long.toString(sessionTtlMillis)
@@ -178,6 +191,11 @@ public class QueueRedisRepository {
         return count == null ? 0 : count;
     }
 
+    public long getWaitingCount(Long scheduleId, String practiceSessionId) {
+        Long count = redisTemplate.opsForZSet().size(QueueKey.waiting(scheduleId, practiceSessionId));
+        return count == null ? 0 : count;
+    }
+
     /**
      * 현재 순번과 활성 입장 슬롯을 기준으로 사용자의 입장 가능 상태를 조회합니다.
      */
@@ -188,13 +206,23 @@ public class QueueRedisRepository {
             int admissionCapacity,
             long sessionTtlMillis
     ) {
+        return getAdmissionState(scheduleId, userId, admissionCapacity, sessionTtlMillis, null);
+    }
+
+    public QueueAdmissionState getAdmissionState(
+            Long scheduleId,
+            Long userId,
+            int admissionCapacity,
+            long sessionTtlMillis,
+            String practiceSessionId
+    ) {
         List<Object> result = redisTemplate.execute(
                 GET_ADMISSION_STATE_SCRIPT,
                 List.of(
-                        QueueKey.waiting(scheduleId),
-                        QueueKey.activeEntries(scheduleId),
-                        QueueKey.sessionExpirations(scheduleId),
-                        QueueKey.session(scheduleId, userId)
+                        QueueKey.waiting(scheduleId, practiceSessionId),
+                        QueueKey.activeEntries(scheduleId, practiceSessionId),
+                        QueueKey.sessionExpirations(scheduleId, practiceSessionId),
+                        QueueKey.session(scheduleId, userId, practiceSessionId)
                 ),
                 userId.toString(),
                 Integer.toString(admissionCapacity),
@@ -228,17 +256,68 @@ public class QueueRedisRepository {
     }
 
     public boolean heartbeat(Long scheduleId, Long userId, long sessionTtlMillis) {
+        return heartbeat(scheduleId, userId, sessionTtlMillis, null);
+    }
+
+    public boolean heartbeat(
+            Long scheduleId,
+            Long userId,
+            long sessionTtlMillis,
+            String practiceSessionId
+    ) {
         Long result = redisTemplate.execute(
                 HEARTBEAT_SCRIPT,
                 List.of(
-                        QueueKey.waiting(scheduleId),
-                        QueueKey.sessionExpirations(scheduleId),
-                        QueueKey.session(scheduleId, userId)
+                        QueueKey.waiting(scheduleId, practiceSessionId),
+                        QueueKey.sessionExpirations(scheduleId, practiceSessionId),
+                        QueueKey.session(scheduleId, userId, practiceSessionId)
                 ),
                 userId.toString(),
                 Long.toString(sessionTtlMillis)
         );
         return result != null && result == 1L;
+    }
+
+    public void deletePracticeSession(String practiceSessionId) {
+        Set<String> keys = redisTemplate.keys(QueueKey.practiceKeys(practiceSessionId));
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
+    }
+
+    public void expirePracticeSessionKeys(
+            Long scheduleId,
+            String practiceSessionId,
+            Duration ttl
+    ) {
+        if (practiceSessionId == null || practiceSessionId.isBlank()) {
+            return;
+        }
+
+        List.of(
+                QueueKey.waiting(scheduleId, practiceSessionId),
+                QueueKey.sequence(scheduleId, practiceSessionId),
+                QueueKey.scheduleState(scheduleId, practiceSessionId),
+                QueueKey.activeEntries(scheduleId, practiceSessionId),
+                QueueKey.sessionExpirations(scheduleId, practiceSessionId)
+        ).forEach(key -> redisTemplate.expire(key, ttl));
+    }
+
+    public void createPracticeSession(
+            Long scheduleId,
+            String practiceSessionId,
+            Instant bookingOpenAt,
+            Instant bookingCloseAt
+    ) {
+        redisTemplate.opsForHash().putAll(
+                QueueKey.scheduleState(scheduleId, practiceSessionId),
+                Map.of(
+                        "status", "BOOKING_OPEN",
+                        "bookingOpenAt", Long.toString(bookingOpenAt.toEpochMilli()),
+                        "bookingCloseAt", Long.toString(bookingCloseAt.toEpochMilli()),
+                        "version", "0"
+                )
+        );
     }
 
     public record QueueJoinResult(
