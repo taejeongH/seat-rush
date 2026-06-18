@@ -39,44 +39,95 @@ spring:
 server:
   port: 8081
 
+# ------------------------------------------------------------------
+# JWT 설정 (로그인 인증 및 Access Token 발급)
+# ------------------------------------------------------------------
 jwt:
+  # 토큰 발급처 식별 정보
   issuer: seat-rush-ticket-service
+  # 서명용 비대칭 암호화 개인키 (Ticket Service에 보관)
   private-key-location: classpath:cert/private-key.pem
+  # 서명 검증용 공개키
   public-key-location: classpath:cert/public-key.pem
+  # Access Token의 유효 기간 (기본값: 1시간 = 3600초)
   access-token-expiration-seconds: ${JWT_ACCESS_TOKEN_EXPIRATION_SECONDS:3600}
 
+# ------------------------------------------------------------------
+# 대기열 진입 토큰 설정 (Entry Token 검증)
+# ------------------------------------------------------------------
 entry-token:
+  # 검증 대상 대기열 진입 토큰의 신뢰하는 발급자 식별 정보
   issuer: ${ENTRY_TOKEN_ISSUER:seat-rush-queue-service}
+  # 진입 토큰의 수신 대상 서비스 식별 정보
   audience: ${ENTRY_TOKEN_AUDIENCE:seat-rush-ticket-service}
+  # 대기열 서비스(Queue Service)의 공개키 위치 (대기열 토큰 검증에 사용)
   public-key-location: classpath:cert/entry-token-public-key.pem
 
+# ------------------------------------------------------------------
+# 좌석 설정
+# ------------------------------------------------------------------
 seat:
   hold:
+    # 실시간 좌석 임시 선점 유효 기한 (기본값: 5분)
     ttl: ${SEAT_HOLD_TTL:5m}
+    # 1회 요청으로 동시에 선점할 수 있는 최대 좌석 수
     max-seats: ${SEAT_HOLD_MAX_SEATS:4}
 
+# ------------------------------------------------------------------
+# 예약 설정
+# ------------------------------------------------------------------
 reservation:
+  # 예매 생성 후 결제를 마쳐야 하는 타임아웃 기한 (기본값: 10분)
   payment-timeout: ${RESERVATION_PAYMENT_TIMEOUT:10m}
+  # 결제 기한 도과 예매 만료 스케줄 시, 1회 배치 처리할 최대 건수
   expiration-batch-size: ${RESERVATION_EXPIRATION_BATCH_SIZE:100}
+  # 예매 만료 감지 스케줄의 주기적인 실행 지연 시간 (밀리초 단위, 기본값: 1초)
   expiration-fixed-delay-ms: ${RESERVATION_EXPIRATION_FIXED_DELAY_MS:1000}
 
+# ------------------------------------------------------------------
+# 연습 모드 설정
+# ------------------------------------------------------------------
+practice:
+  # 연습 세션 가상 예매 내역 및 결제 상태 캐시의 Redis 보존 시간 (기본값: 3시간)
+  session-result-ttl: ${PRACTICE_SESSION_RESULT_TTL:3h}
+
+# ------------------------------------------------------------------
+# 트랜잭셔널 아웃박스(Outbox) 패턴 설정
+# ------------------------------------------------------------------
 outbox:
+  # Outbox에 적재된 메시지를 읽어 Kafka로 전송하는 릴레이 스케줄러 설정
   relay:
+    # 릴레이 스케줄러 기동 여부
     enabled: ${OUTBOX_RELAY_ENABLED:true}
+    # 릴레이 폴링 반복 주기 (밀리초 단위, 기본값: 1초)
     fixed-delay-ms: ${OUTBOX_RELAY_FIXED_DELAY_MS:1000}
+    # 1회 릴레이 실행 시 조회하여 발행할 최대 아웃박스 레코드 수 (기본값: 100개)
     batch-size: ${OUTBOX_RELAY_BATCH_SIZE:100}
+    # 일시적 오류 시 아웃박스 발행을 시도할 최대 재시도 횟수
     max-retry-count: ${OUTBOX_RELAY_MAX_RETRY_COUNT:5}
+    # Kafka 브로커로 메시지 전송 후 응답을 대기하는 최대 타임아웃 시간 (초 단위)
     send-timeout-seconds: ${OUTBOX_RELAY_SEND_TIMEOUT_SECONDS:10}
+    # 분산 서버 환경에서 특정 워커 노드가 레코드를 선점하여 잠그는 임대 유효 시간 (초 단위)
     processing-lease-seconds: ${OUTBOX_RELAY_PROCESSING_LEASE_SECONDS:30}
+  # 발행이 완료(PUBLISHED)된 오래된 Outbox 레코드를 정리하는 스케줄러 설정
   cleanup:
+    # 정리 스케줄러 기동 여부
     enabled: ${OUTBOX_CLEANUP_ENABLED:true}
+    # 정리 주기 크론식 (기본값: 매일 새벽 3시 실행)
     cron: "${OUTBOX_CLEANUP_CRON:0 0 3 * * *}"
+    # 크론 실행 기준 타임존
     zone: ${OUTBOX_CLEANUP_ZONE:Asia/Seoul}
+    # 발행 완료된 아웃박스 레코드를 DB에 보관해 둘 만료 기간 (일 단위, 기본값: 7일)
     retention-days: ${OUTBOX_CLEANUP_RETENTION_DAYS:7}
+    # 1회 삭제 트랜잭션 시 일괄 DELETE할 배치 단위 개수 (기본값: 1000개)
     batch-size: ${OUTBOX_CLEANUP_BATCH_SIZE:1000}
+    # 1회 스케줄러 구동 시 트랜잭션을 나누어 반복 삭제할 최대 배치 횟수 (기본값: 100회)
     max-batches-per-run: ${OUTBOX_CLEANUP_MAX_BATCHES_PER_RUN:100}
+  # 장기 미발행 상태 등으로 누락된 Outbox 레코드가 있는지 감시하는 모니터링 스케줄러 설정
   monitor:
+    # 모니터링 활성화 여부
     enabled: ${OUTBOX_MONITOR_ENABLED:true}
+    # 모니터링 반복 실행 주기 (밀리초 단위, 기본값: 60초)
     fixed-delay-ms: ${OUTBOX_MONITOR_FIXED_DELAY_MS:60000}
 
 springdoc:

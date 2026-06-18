@@ -27,21 +27,28 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
 /**
- * RSA PEM 키 파일을 읽어 JWT 발급용 JwtEncoder와 검증용 JwtDecoder를 구성합니다.
- * private key는 토큰 서명에 사용하고 public key는 토큰 검증에 사용합니다.
+ * RSA PEM 키 파일을 읽어 토큰 발급용 `JwtEncoder`와 토큰 검증용 `JwtDecoder`를 설정하는 구성 클래스입니다.
+ * 
+ * - Private Key: JWT 서명에 사용하며, 보안을 위해 티켓 서비스 내부에서만 관리합니다.
+ * - Public Key: JWT 서명 검증에 사용하며, 다른 다운스트림 서비스(예: API Gateway)에서도 검증에 활용할 수 있도록 배포됩니다.
  */
 @Configuration
 @EnableConfigurationProperties(JwtProperties.class)
 public class JwtConfig {
 
     /**
-     * private key로 RS256 JWT를 서명할 JwtEncoder를 생성합니다.
+     * RSA Private Key를 주입받아 비대칭 암호화 서명(RS256)을 처리하는 JwtEncoder 빈을 구성합니다.
+     * 로딩 시 퍼블릭 키와 프라이빗 키가 일치하는 한 쌍의 키스펙인지 유효성 검사를 수행합니다.
+     *
+     * @param properties JWT 설정 프로퍼티
+     * @return NimbusJwtEncoder 인스턴스
      */
     @Bean
     public JwtEncoder jwtEncoder(JwtProperties properties) {
         RSAPublicKey publicKey = parsePublicKey(properties.publicKeyLocation());
         RSAPrivateKey privateKey = parsePrivateKey(properties.privateKeyLocation());
 
+        // 공개키와 개인키가 올바르게 매칭되는지 확인 (Modulus 비교)
         if (!publicKey.getModulus().equals(privateKey.getModulus())) {
             throw new IllegalStateException("JWT private key와 public key가 동일한 키쌍이 아닙니다.");
         }
@@ -55,7 +62,10 @@ public class JwtConfig {
     }
 
     /**
-     * public key로 JWT 서명, 만료 시간, issuer를 검증할 JwtDecoder를 생성합니다.
+     * RSA Public Key를 이용하여 JWT의 서명 및 속성값(만료기간, 발급처 등)을 검증하는 JwtDecoder 빈을 구성합니다.
+     *
+     * @param properties JWT 설정 프로퍼티
+     * @return NimbusJwtDecoder 인스턴스
      */
     @Bean
     public JwtDecoder jwtDecoder(JwtProperties properties) {
@@ -67,7 +77,11 @@ public class JwtConfig {
     }
 
     /**
-     * PKCS#8 형식의 PEM 파일을 RSA private key로 변환합니다.
+     * 지정된 경로의 PKCS#8 규격 PEM 파일을 파싱하여 RSAPrivateKey 인스턴스로 반환합니다.
+     *
+     * @param keyResource 개인키 파일 리소스
+     * @return RSAPrivateKey 객체
+     * @throws IllegalStateException 파싱 실패 시
      */
     private RSAPrivateKey parsePrivateKey(Resource keyResource) {
         try {
@@ -81,7 +95,11 @@ public class JwtConfig {
     }
 
     /**
-     * X.509 형식의 PEM 파일을 RSA public key로 변환합니다.
+     * 지정된 경로의 X.509 규격 PEM 파일을 파싱하여 RSAPublicKey 인스턴스로 반환합니다.
+     *
+     * @param keyResource 공개키 파일 리소스
+     * @return RSAPublicKey 객체
+     * @throws IllegalStateException 파싱 실패 시
      */
     private RSAPublicKey parsePublicKey(Resource keyResource) {
         try {
@@ -95,7 +113,11 @@ public class JwtConfig {
     }
 
     /**
-     * classpath의 PEM 파일을 읽고 Base64 본문만 반환합니다.
+     * 클래스패스에서 PEM 형식 키 파일을 읽어 헤더, 푸터 및 줄바꿈 문자를 제외하고 순수 Base64 본문 내용만 추출합니다.
+     *
+     * @param keyResource PEM 파일 리소스
+     * @return 줄바꿈 및 헤더가 제거된 Base64 문자열
+     * @throws IllegalStateException 파일이 없거나 읽을 수 없는 경우
      */
     private String readKey(Resource keyResource) {
         if (keyResource == null || !keyResource.exists()) {
@@ -114,3 +136,4 @@ public class JwtConfig {
         }
     }
 }
+

@@ -15,7 +15,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 /**
- * Redis 좌석 선점 처리와 DB 예매 생성을 짧은 트랜잭션 경계로 조합합니다.
+ * DB 예매 생성 로직과 Redis 선점 확장 처리를 조합하여 원자적인 흐름을 제어하는 퍼사드(Facade) 서비스입니다.
+ * 
+ * 1. DB 예매 생성 트랜잭션이 시작되기 전에 먼저 Redis 상의 좌석 선점 소유권을 확인하고 만료 시간(TTL)을 연장합니다.
+ * 2. 그 다음 실제 RDB 예매 생성을 트랜잭셔널하게 진행합니다. (짧은 트랜잭션 경계 유지)
  */
 @Service
 public class ReservationFacade {
@@ -38,13 +41,21 @@ public class ReservationFacade {
     }
 
     /**
-     * 트랜잭션 시작 전에 hold를 재검증하고 결제 기한까지 TTL을 연장합니다.
+     * 중복 예매 생성 검증 후, Redis의 선점 기한을 결제 대기 기한(Timeout)만큼 선 연장하고,
+     * RDB에 예매 레코드를 안전하게 생성합니다.
+     *
+     * @param holdId 좌석 선점 UUID
+     * @param claims 대기열 진입 토큰 정보
+     * @return 생성된 예매 결과 Dto
+     * @throws CustomException 이미 해당 holdId로 생성된 예매가 존재할 경우
      */
     public ReservationResponseDto create(String holdId, EntryTokenClaims claims) {
+        // 이미 생성된 예매인지 선제적 유효성 검사
         if (reservationRepository.existsByHoldId(holdId)) {
             throw new CustomException(ErrorCode.RESERVATION_ALREADY_EXISTS);
         }
 
+        // 1. Redis 선점 기한 연장 처리 (DB 트랜잭션 외부에서 작동)
         Instant expiresAtInstant = Instant.now().plus(properties.paymentTimeout());
         SeatHold hold = seatHoldService.extendForReservation(
                 holdId,
@@ -57,6 +68,8 @@ public class ReservationFacade {
                 ZoneId.systemDefault()
         );
 
+        // 2. RDB 상에 결제 대기 예매 내역 삽입 (DB 트랜잭션 진입)
         return reservationService.create(hold, claims.userId(), expiresAt);
     }
 }
+

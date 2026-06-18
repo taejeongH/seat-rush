@@ -13,6 +13,7 @@ import com.seatrush.ticketservice.domain.seat.entity.SeatStatus;
 import com.seatrush.ticketservice.domain.seat.repository.SeatHoldRedisRepository;
 import com.seatrush.ticketservice.domain.seat.repository.SeatHoldResult;
 import com.seatrush.ticketservice.domain.seat.repository.SeatRepository;
+import com.seatrush.ticketservice.domain.seatlayout.service.SeatLayoutQueryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -35,6 +36,7 @@ import static org.mockito.Mockito.when;
 class SeatHoldServiceTest {
 
     private SeatRepository seatRepository;
+    private SeatLayoutQueryService layoutQueryService;
     private SeatHoldRedisRepository holdRedisRepository;
     private EntryTokenValidator entryTokenValidator;
     private SeatHoldService service;
@@ -42,10 +44,12 @@ class SeatHoldServiceTest {
     @BeforeEach
     void setUp() {
         seatRepository = mock(SeatRepository.class);
+        layoutQueryService = mock(SeatLayoutQueryService.class);
         holdRedisRepository = mock(SeatHoldRedisRepository.class);
         entryTokenValidator = mock(EntryTokenValidator.class);
         service = new SeatHoldService(
                 seatRepository,
+                layoutQueryService,
                 holdRedisRepository,
                 entryTokenValidator,
                 new SeatHoldProperties(Duration.ofMinutes(5), 4)

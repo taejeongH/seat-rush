@@ -1,4 +1,4 @@
-package com.seatrush.ticketservice.domain.practice.dto;
+package com.seatrush.ticketservice.domain.practice.reservation.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -8,7 +8,7 @@ public record PracticePaymentResponseDto(
         Long reservationId,
         BigDecimal amount,
         String status,
-        LocalDateTime completedAt,
-        LocalDateTime createdAt
+        LocalDateTime requestedAt,
+        LocalDateTime approvedAt
 ) {
 }

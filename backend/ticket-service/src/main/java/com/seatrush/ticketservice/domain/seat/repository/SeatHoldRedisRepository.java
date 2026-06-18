@@ -1,5 +1,6 @@
 package com.seatrush.ticketservice.domain.seat.repository;
 
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Repository;
@@ -18,88 +19,30 @@ import java.util.Map;
 @Repository
 public class SeatHoldRedisRepository {
 
-    private static final DefaultRedisScript<List> HOLD_SEATS_SCRIPT =
-            new DefaultRedisScript<>("""
-                    local seatCount = #KEYS - 1
-                    for index = 1, seatCount do
-                        if redis.call('EXISTS', KEYS[index]) == 1 then
-                            return {0, ARGV[8 + index]}
-                        end
-                    end
+    private static final DefaultRedisScript<List> HOLD_SEATS_SCRIPT;
+    private static final DefaultRedisScript<Long> RELEASE_HOLD_SCRIPT;
+    private static final DefaultRedisScript<Long> EXTEND_HOLD_SCRIPT;
 
-                    for index = 1, seatCount do
-                        redis.call('PSETEX', KEYS[index], ARGV[5], ARGV[1])
-                    end
+    static {
+        HOLD_SEATS_SCRIPT = new DefaultRedisScript<>();
+        HOLD_SEATS_SCRIPT.setLocation(new ClassPathResource("scripts/hold_seats.lua"));
+        HOLD_SEATS_SCRIPT.setResultType(List.class);
 
-                    redis.call(
-                        'HSET',
-                        KEYS[#KEYS],
-                        'userId', ARGV[2],
-                        'scheduleId', ARGV[3],
-                        'entryTokenId', ARGV[4],
-                        'seatIds', ARGV[6],
-                        'expiresAt', ARGV[7],
-                        'practiceSessionId', ARGV[8]
-                    )
-                    redis.call('PEXPIRE', KEYS[#KEYS], ARGV[5])
-                    return {1, ''}
-                    """, List.class);
+        RELEASE_HOLD_SCRIPT = new DefaultRedisScript<>();
+        RELEASE_HOLD_SCRIPT.setLocation(new ClassPathResource("scripts/release_hold.lua"));
+        RELEASE_HOLD_SCRIPT.setResultType(Long.class);
 
-    private static final DefaultRedisScript<Long> RELEASE_HOLD_SCRIPT =
-            new DefaultRedisScript<>("""
-                    local holdId = ARGV[1]
-                    for index = 1, #KEYS - 1 do
-                        if redis.call('GET', KEYS[index]) == holdId then
-                            redis.call('DEL', KEYS[index])
-                        end
-                    end
-                    return redis.call('DEL', KEYS[#KEYS])
-                    """, Long.class);
-
-    private static final DefaultRedisScript<Long> EXTEND_HOLD_SCRIPT =
-            new DefaultRedisScript<>("""
-                    local hold = redis.call(
-                        'HMGET',
-                        KEYS[#KEYS],
-                        'userId',
-                        'scheduleId',
-                        'entryTokenId'
-                    )
-
-                    if not hold[1] or not hold[2] or not hold[3] then
-                        return 0
-                    end
-
-                    if hold[1] ~= ARGV[2]
-                        or hold[2] ~= ARGV[3]
-                        or hold[3] ~= ARGV[4] then
-                        return -1
-                    end
-
-                    for index = 1, #KEYS - 1 do
-                        if redis.call('GET', KEYS[index]) ~= ARGV[1] then
-                            return 0
-                        end
-                    end
-
-                    for index = 1, #KEYS - 1 do
-                        redis.call('PEXPIRE', KEYS[index], ARGV[5])
-                    end
-
-                    redis.call(
-                        'HSET',
-                        KEYS[#KEYS],
-                        'expiresAt', ARGV[6]
-                    )
-                    redis.call('PEXPIRE', KEYS[#KEYS], ARGV[5])
-                    return 1
-                    """, Long.class);
+        EXTEND_HOLD_SCRIPT = new DefaultRedisScript<>();
+        EXTEND_HOLD_SCRIPT.setLocation(new ClassPathResource("scripts/extend_hold.lua"));
+        EXTEND_HOLD_SCRIPT.setResultType(Long.class);
+    }
 
     private final RedisTemplate<String, String> redisTemplate;
 
     public SeatHoldRedisRepository(RedisTemplate<String, String> redisTemplate) {
         this.redisTemplate = redisTemplate;
     }
+
 
     /**
      * Atomically holds all requested seats only if every seat is available.
