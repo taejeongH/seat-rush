@@ -180,7 +180,7 @@ export const api = {
     entryToken: string,
   ) =>
     request<SeatSection[]>(
-      `/api/practice/sessions/${practiceSessionId}/seat-layouts/${seatLayoutId}/sections`,
+      `/api/practice-reservations/sessions/${practiceSessionId}/seat-layouts/${seatLayoutId}/sections`,
       {},
       entryToken,
     ),
@@ -192,7 +192,7 @@ export const api = {
     entryToken: string,
   ) =>
     request<Seat[]>(
-      `/api/practice/sessions/${practiceSessionId}/seat-layouts/${seatLayoutId}/seats?sectionId=${sectionId}`,
+      `/api/practice-reservations/sessions/${practiceSessionId}/seat-layouts/${seatLayoutId}/seats?sectionId=${sectionId}`,
       {},
       entryToken,
     ),
@@ -213,7 +213,7 @@ export const api = {
 
   createPracticeReservation: (holdId: string, entryToken: string) =>
     request<Reservation>(
-      '/api/practice/reservations',
+      '/api/practice-reservations/reservations',
       postJson({ holdId }),
       entryToken,
     ),
@@ -223,7 +223,7 @@ export const api = {
 
   practiceReservation: (practiceSessionId: string, reservationId: number) =>
     request<Reservation>(
-      `/api/practice/sessions/${practiceSessionId}/reservations/${reservationId}`,
+      `/api/practice-reservations/sessions/${practiceSessionId}/reservations/${reservationId}`,
     ),
 
   requestPayment: (reservationId: number) =>
@@ -234,7 +234,7 @@ export const api = {
 
   requestPracticePayment: (practiceSessionId: string, reservationId: number) =>
     request<PaymentRequest>(
-      `/api/practice/sessions/${practiceSessionId}/reservations/${reservationId}/payments`,
+      `/api/practice-reservations/sessions/${practiceSessionId}/reservations/${reservationId}/payments`,
       { method: 'POST' },
     ),
 
@@ -243,7 +243,7 @@ export const api = {
 
   practicePaymentPreparation: (practiceSessionId: string, paymentId: string) =>
     request<PaymentPreparation>(
-      `/api/practice/sessions/${practiceSessionId}/payments/${paymentId}`,
+      `/api/practice-reservations/sessions/${practiceSessionId}/payments/${paymentId}`,
     ),
 
   completePayment: (paymentId: string, result: 'SUCCESS' | 'FAILED') =>
@@ -258,13 +258,13 @@ export const api = {
     result: 'SUCCESS' | 'FAILED',
   ) =>
     request<Payment>(
-      `/api/practice/sessions/${practiceSessionId}/payments/${paymentId}/complete`,
+      `/api/practice-reservations/sessions/${practiceSessionId}/payments/${paymentId}/complete`,
       postJson({ result }),
     ),
 
   deletePracticeSession: (practiceSessionId: string) =>
     request<void>(
-      `/api/practice/sessions/${practiceSessionId}`,
+      `/api/practice-reservations/sessions/${practiceSessionId}`,
       { method: 'DELETE' },
     ),
 
