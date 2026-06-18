@@ -13,30 +13,56 @@ import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
 
+/**
+ * Kafka ë¸Œë¡œì»¤ì????µí•©???„í•´ ? í”½(Topic) ?ì„± ë°??Œë¹„ ?¤ë¥˜ ì²˜ë¦¬(ErrorHandler) ?¤ì •???´ë‹¹?˜ëŠ” ?¤ì • ?´ë˜?¤ì…?ˆë‹¤.
+ */
 @EnableKafka
 @Configuration
 public class KafkaConfig {
 
+    /**
+     * ?ˆë§¤ ?±ê³µ ?•ì •(RESERVATION_CONFIRMED) ? í”½???•ì˜?©ë‹ˆ??
+     */
     @Bean
     public NewTopic reservationConfirmedTopic() {
         return topic(KafkaTopic.RESERVATION_CONFIRMED);
     }
 
+    /**
+     * ?ˆë§¤ ?±ê³µ ?•ì • ?Œë¦¼ ì²˜ë¦¬ ?¤íŒ¨ ???„ì†¡??DLT ? í”½???•ì˜?©ë‹ˆ??
+     */
     @Bean
     public NewTopic reservationConfirmedDltTopic() {
         return topic(KafkaTopic.RESERVATION_CONFIRMED_DLT);
     }
 
+    /**
+     * ê²°ì œ ?¤íŒ¨(PAYMENT_FAILED) ? í”½???•ì˜?©ë‹ˆ??
+     */
     @Bean
     public NewTopic paymentFailedTopic() {
         return topic(KafkaTopic.PAYMENT_FAILED);
     }
 
+    /**
+     * ê²°ì œ ?¤íŒ¨ ?Œë¦¼ ì²˜ë¦¬ ?¤íŒ¨ ???„ì†¡??DLT ? í”½???•ì˜?©ë‹ˆ??
+     */
     @Bean
     public NewTopic paymentFailedDltTopic() {
         return topic(KafkaTopic.PAYMENT_FAILED_DLT);
     }
 
+    /**
+     * ?Œë¦¼ ?Œë¹„ ì¤??¤íŒ¨ ??ì§€??ë°±ì˜¤???¬ì‹œ??ë°?DLT ?¼ìš°?…ì„ ?˜í–‰?˜ëŠ” ?ëŸ¬ ?¸ë“¤?¬ì…?ˆë‹¤.
+     *
+     * 1. 3??ì§€??ë°±ì˜¤??ê¸°ë°˜ ?¬ì‹œ??ì´ˆê¸° 1ì´? 2.0ë°?ì¦ê?, ìµœë? 10ì´?ë¥??˜í–‰?©ë‹ˆ??
+     * 2. ?¬ì‹œ???¤íŒ¨ ???ë³¸ ? í”½ ëª…ì¹­ ?¤ì— ".DLT"ë¥?ë¶™ì—¬ ?´ë‹¹?˜ëŠ” ?°ë“œ ?ˆí„° ? í”½?¼ë¡œ ?´ë™?œí‚µ?ˆë‹¤.
+     * 3. JsonProcessingException(JSON ??§?¬í™” ?¤ë¥˜)?€ ?¬ì‹œ???†ì´ ì¦‰ì‹œ DLTë¡??´ë™?©ë‹ˆ??
+     * 4. DLT ?„ì†¡???±ê³µ?˜ë©´ ?¤í”„?‹ì„ ?ë™ ì»¤ë°‹(setCommitRecovered)?˜ì—¬ ë©”ì‹œì§€ ì§€?°ì„ ë°©ì??©ë‹ˆ??
+     *
+     * @param kafkaTemplate DLT ?„ì†¡???„í•œ ?œí”Œë¦?ê°ì²´
+     * @return ?ëŸ¬ ?¸ë“¤??ê°ì²´
+     */
     @Bean
     public DefaultErrorHandler kafkaErrorHandler(
             KafkaTemplate<String, String> kafkaTemplate
@@ -60,6 +86,9 @@ public class KafkaConfig {
         return errorHandler;
     }
 
+    /**
+     * ?¨ì¼ ?Œí‹°??ë°??¨ì¼ ë³µì œë³?ì¡°ê±´??? í”½ ë¹Œë” ?¬í¼ ë©”ì„œ?œì…?ˆë‹¤.
+     */
     private NewTopic topic(String name) {
         return TopicBuilder.name(name)
                 .partitions(1)
