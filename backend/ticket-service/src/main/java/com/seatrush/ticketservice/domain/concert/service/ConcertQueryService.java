@@ -70,6 +70,15 @@ public class ConcertQueryService {
     }
 
     /**
+     * 공연 회차 ID의 존재 여부를 검증하고 존재하지 않으면 예외를 발생시킵니다.
+     */
+    public void validateScheduleExists(Long scheduleId) {
+        if (!concertScheduleRepository.existsById(scheduleId)) {
+            throw new CustomException(ErrorCode.SCHEDULE_NOT_FOUND);
+        }
+    }
+
+    /**
      * 공연을 조회하고 존재하지 않으면 공연 조회 예외를 발생시킵니다.
      */
     private Concert findConcert(Long concertId) {
