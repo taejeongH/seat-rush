@@ -15,13 +15,18 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
+/**
+ * Queue Service 전역 예외를 공통 API 응답 형식으로 변환합니다.
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
     private static final String REQUEST_LOG_FORMAT = "[{}] {} {} - {}";
 
-    // 비즈니스 로직에서 의도적으로 발생시킨 예외를 표준 에러 응답으로 변환한다.
+    /**
+     * 비즈니스 로직에서 의도적으로 발생시킨 CustomException을 처리합니다.
+     */
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<ApiResponse<Void>> handleCustomException(CustomException exception, HttpServletRequest request) {
         ErrorCode errorCode = exception.getErrorCode();
@@ -30,7 +35,9 @@ public class GlobalExceptionHandler {
         return ApiResponse.onFailure(errorCode);
     }
 
-    // 요청 파라미터, 요청 본문, 검증 실패 예외를 입력값 오류 응답으로 통일한다.
+    /**
+     * 요청 파라미터, 요청 본문, validation 실패를 잘못된 입력값 응답으로 처리합니다.
+     */
     @ExceptionHandler({
             BindException.class,
             MethodArgumentNotValidException.class,
@@ -44,7 +51,9 @@ public class GlobalExceptionHandler {
         return ApiResponse.onFailure(ErrorCode.INVALID_INPUT_VALUE);
     }
 
-    // 지원하지 않는 HTTP 메서드 요청을 405 에러 응답으로 변환한다.
+    /**
+     * 지원하지 않는 HTTP 메서드 요청을 처리합니다.
+     */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ApiResponse<Void>> handleMethodNotAllowed(
             HttpRequestMethodNotSupportedException exception,
@@ -55,7 +64,9 @@ public class GlobalExceptionHandler {
         return ApiResponse.onFailure(ErrorCode.METHOD_NOT_ALLOWED);
     }
 
-    // Gateway에서 전달해야 하는 사용자 헤더가 없으면 인증 오류 응답으로 변환한다.
+    /**
+     * Gateway에서 전달해야 하는 사용자 헤더가 없으면 인증 오류로 처리합니다.
+     */
     @ExceptionHandler(MissingRequestHeaderException.class)
     public ResponseEntity<ApiResponse<Void>> handleMissingRequestHeader(
             MissingRequestHeaderException exception,
@@ -66,7 +77,9 @@ public class GlobalExceptionHandler {
         return ApiResponse.onFailure(ErrorCode.AUTHENTICATION_REQUIRED);
     }
 
-    // 예상하지 못한 모든 예외를 서버 내부 오류 응답으로 변환한다.
+    /**
+     * 예상하지 못한 모든 예외를 서버 오류 응답으로 처리합니다.
+     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleException(Exception exception, HttpServletRequest request) {
         log.error(
@@ -81,7 +94,9 @@ public class GlobalExceptionHandler {
         return ApiResponse.onFailure(ErrorCode.INTERNAL_SERVER_ERROR);
     }
 
-    // 입력값 오류 예외에서 로그에 남길 핵심 메시지를 추출한다.
+    /**
+     * 입력값 오류 예외에서 로그에 남길 핵심 메시지를 추출합니다.
+     */
     private static String summarizeInvalidInput(Exception exception) {
         if (exception instanceof BindException bindException) {
             return bindException.getBindingResult().getFieldErrors().stream()
