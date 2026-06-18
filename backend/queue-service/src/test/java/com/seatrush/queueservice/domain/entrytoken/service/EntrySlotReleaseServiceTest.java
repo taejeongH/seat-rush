@@ -1,5 +1,6 @@
 package com.seatrush.queueservice.domain.entrytoken.service;
 
+import com.seatrush.queueservice.common.exception.CustomException;
 import com.seatrush.queueservice.domain.entrytoken.event.EntrySlotReleaseEvent;
 import com.seatrush.queueservice.domain.entrytoken.event.EntrySlotReleaseReason;
 import com.seatrush.queueservice.domain.entrytoken.repository.EntryTokenRedisRepository;
@@ -52,7 +53,7 @@ class EntrySlotReleaseServiceTest {
         EntrySlotReleaseEvent event = event("");
 
         assertThatThrownBy(() -> service.release(event))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(CustomException.class);
     }
 
     private EntrySlotReleaseEvent event(String entryTokenId) {
