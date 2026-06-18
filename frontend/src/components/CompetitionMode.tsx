@@ -3,12 +3,57 @@ import {
   Activity, ArrowLeft, CircleStop, Play, RefreshCw, Server,
   Trophy, Users,
 } from 'lucide-react'
-import { api } from './api'
+import { api } from '../api'
 import {
   competitionApi,
   type CompetitionSnapshot,
-} from './competition'
-import type { Schedule, SeatLayout } from './types'
+} from '../competition'
+import type { Schedule, SeatLayout } from '../types'
+
+/**
+ * 가상 사용자 경쟁 엔진의 글로벌 상태(STATUS)를 친근한 한국어 텍스트로 치환하기 위한 매핑 사전입니다.
+ */
+const competitionStatusLabel: Record<string, string> = {
+  IDLE: '대기 중',
+  PREPARING: '사용자 로그인 준비 중',
+  READY: '대기열 오픈 대기 중 (카운트다운)',
+  WAITING: '예매 대기열 진행 중',
+  COMPLETED: '예매 종료됨',
+  FAILED: '시스템 실패',
+}
+
+/**
+ * 가상 사용자의 개별 행동 단계 상태값을 직관적인 한국어 텍스트로 치환하기 위한 매핑 사전입니다.
+ */
+const eventStatusLabel: Record<string, string> = {
+  PREPARING: '로그인 준비',
+  READY: '준비 완료',
+  WAITING: '대기열 진입',
+  ENTERED: '좌석 선택 단계 입장',
+  HELD: '좌석 선점',
+  RESERVED: '예매 신청',
+  CONFIRMED: '결제 완료(예매 성공)',
+  FAILED: '예매 실패',
+  PAYMENT_FAILED: '결제 실패',
+  ABANDONED_QUEUE: '대기 중 이탈',
+  ABANDONED_ENTRY: '입장 후 이탈',
+  ABANDONED_HOLD: '선점 후 이탈',
+}
+
+/**
+ * 가상 사용자 생성기가 보내오는 영어 메시지 로그를 읽기 쉽도록 한국어로 번역 및 정리합니다.
+ */
+const translateEventDetail = (detail: string) => {
+  if (!detail) return '-'
+  return detail
+    .replace(/waiting rank: (\d+)/g, '대기 순번: $1번')
+    .replace(/held seatIds: ([\d,]+)/g, '좌석 선점: $1번')
+    .replace(/reservationId: (\d+)/g, '예매 번호: $1')
+    .replace(/paymentId: ([\w-]+)/g, '결제 ID: $1')
+    .replace(/abandoned after entry token expired/g, '입장 토큰 만료로 이탈')
+    .replace(/abandoned queue/g, '대기열 진입 포기')
+    .replace(/abandoned after hold expired/g, '좌석 선점 만료로 이탈')
+}
 
 const formatDateTime = (value?: string | null) => value
   ? new Intl.DateTimeFormat('ko-KR', {
@@ -257,7 +302,9 @@ export function CompetitionMode({
         <section className="competition-dashboard">
           <div className="panel-title">
             <div><p className="eyebrow">Live race</p><h2>실시간 경쟁 현황</h2></div>
-            <span className="run-badge"><Activity size={15} /> {snapshot.status}</span>
+            <span className="run-badge">
+              <Activity size={15} /> {competitionStatusLabel[snapshot.status] ?? snapshot.status}
+            </span>
           </div>
 
           <div className="competition-progress">
@@ -277,8 +324,8 @@ export function CompetitionMode({
             {snapshot.recentEvents.length ? snapshot.recentEvents.slice(0, 12).map((event, index) => (
               <div className="competition-event" key={`${event.userNumber}-${event.occurredAt}-${index}`}>
                 <span className="event-user">#{event.userNumber}</span>
-                <strong>{event.status}</strong>
-                <span>{event.detail}</span>
+                <strong>{eventStatusLabel[event.status] ?? event.status}</strong>
+                <span>{translateEventDetail(event.detail)}</span>
                 <time>{formatDateTime(event.occurredAt)}</time>
               </div>
             )) : (
