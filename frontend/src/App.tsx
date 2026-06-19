@@ -85,7 +85,6 @@ export default function App() {
 
   // 연습용 경쟁 모드 상태값
   const [practiceSessionId, setPracticeSessionId] = useState<string | null>(null)
-  const [practiceStartAt, setPracticeStartAt] = useState<string | null>(null)
   const [practiceCountdownMillis, setPracticeCountdownMillis] = useState(0)
 
   // 결제 진행 상태 제어
@@ -103,6 +102,9 @@ export default function App() {
   const [competitionSnapshot, setCompetitionSnapshot] =
     useState<CompetitionSnapshot>(initialCompetitionSnapshot)
   const [competitionConnected, setCompetitionConnected] = useState(false)
+  const practiceStartAt = competitionSnapshot.practiceSessionId === practiceSessionId
+    ? competitionSnapshot.startAt
+    : null
 
   // 연습 모드 여부에 따른 예약/결제 API 서비스 매핑
   const bookingApi = useMemo(() => getBookingApi(practiceSessionId), [practiceSessionId])
@@ -174,22 +176,6 @@ export default function App() {
     const timer = window.setInterval(updateCountdown, 250)
     return () => window.clearInterval(timer)
   }, [practiceSessionId, practiceStartAt, schedule, user, view])
-
-  // 경쟁 모드 백엔드 이벤트 기반 연습 시작 시간 싱크
-  useEffect(() => {
-    if (
-      !practiceSessionId
-      || competitionSnapshot.practiceSessionId !== practiceSessionId
-      || !competitionSnapshot.startAt
-    ) {
-      return
-    }
-
-    setPracticeStartAt(competitionSnapshot.startAt)
-    setPracticeCountdownMillis(
-      Math.max(0, new Date(competitionSnapshot.startAt).getTime() - Date.now()),
-    )
-  }, [competitionSnapshot.practiceSessionId, competitionSnapshot.startAt, practiceSessionId])
 
   // 가상 사용자 경쟁 생성기 SSE 실시간 수신 연동
   useEffect(() => {
@@ -301,7 +287,6 @@ export default function App() {
       setSchedules([selectedSchedule])
       setSchedule(selectedSchedule)
       setPracticeSessionId(nextPracticeSessionId)
-      setPracticeStartAt(null)
       setPracticeCountdownMillis(0)
       if (!user) setAuthOpen(true)
       navigate('practice-wait')
@@ -481,7 +466,6 @@ export default function App() {
     setReservation(null)
     setPaymentId('')
     setPracticeSessionId(null)
-    setPracticeStartAt(null)
     setPracticeCountdownMillis(0)
     setPaymentPreparation('IDLE')
     paymentInitializationRef.current = null

@@ -170,7 +170,7 @@ class PaymentServiceTest {
                 service.complete("payment-1", 10L, PaymentStatus.SUCCESS);
 
         assertThat(response.status()).isEqualTo(PaymentStatus.SUCCESS);
-        verify(eventPublisher).publishAfterCommit(any(PaymentResultEvent.class));
+        verify(eventPublisher).publish(any(PaymentResultEvent.class));
     }
 
     /**
@@ -185,7 +185,7 @@ class PaymentServiceTest {
                 service.complete("payment-1", 10L, PaymentStatus.FAILED);
 
         assertThat(response.status()).isEqualTo(PaymentStatus.FAILED);
-        verify(eventPublisher).publishAfterCommit(any(PaymentResultEvent.class));
+        verify(eventPublisher).publish(any(PaymentResultEvent.class));
     }
 
     /**
@@ -202,7 +202,7 @@ class PaymentServiceTest {
 
         assertThat(response.status()).isEqualTo(PaymentStatus.SUCCESS);
         verify(eventPublisher, times(1))
-                .publishAfterCommit(any(PaymentResultEvent.class));
+                .publish(any(PaymentResultEvent.class));
     }
 
     /**
@@ -220,7 +220,7 @@ class PaymentServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting(exception -> ((CustomException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.PAYMENT_ALREADY_COMPLETED);
-        verify(eventPublisher, never()).publishAfterCommit(any());
+        verify(eventPublisher, never()).publish(any());
     }
 
     private Payment payment() {
