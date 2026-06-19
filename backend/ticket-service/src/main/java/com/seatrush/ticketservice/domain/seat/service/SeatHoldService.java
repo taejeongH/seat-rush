@@ -3,6 +3,7 @@ package com.seatrush.ticketservice.domain.seat.service;
 import com.seatrush.ticketservice.common.entrytoken.EntryTokenClaims;
 import com.seatrush.ticketservice.common.entrytoken.EntryTokenValidator;
 import com.seatrush.ticketservice.common.exception.CustomException;
+import com.seatrush.ticketservice.common.metrics.BusinessMetrics;
 import com.seatrush.ticketservice.common.response.status.ErrorCode;
 import com.seatrush.ticketservice.domain.seat.config.SeatHoldProperties;
 import com.seatrush.ticketservice.domain.seat.dto.response.SeatHoldResponseDto;
@@ -39,19 +40,22 @@ public class SeatHoldService {
     private final SeatHoldRedisRepository holdRedisRepository;
     private final EntryTokenValidator entryTokenValidator;
     private final SeatHoldProperties properties;
+    private final BusinessMetrics businessMetrics;
 
     public SeatHoldService(
             SeatRepository seatRepository,
             SeatLayoutQueryService layoutQueryService,
             SeatHoldRedisRepository holdRedisRepository,
             EntryTokenValidator entryTokenValidator,
-            SeatHoldProperties properties
+            SeatHoldProperties properties,
+            BusinessMetrics businessMetrics
     ) {
         this.seatRepository = seatRepository;
         this.layoutQueryService = layoutQueryService;
         this.holdRedisRepository = holdRedisRepository;
         this.entryTokenValidator = entryTokenValidator;
         this.properties = properties;
+        this.businessMetrics = businessMetrics;
     }
 
     /**
@@ -72,38 +76,37 @@ public class SeatHoldService {
             EntryTokenClaims claims,
             List<Long> requestedSeatIds
     ) {
-        entryTokenValidator.validateSchedule(claims, scheduleId);
-        List<Long> seatIds = validateSeatIds(requestedSeatIds);
-        
-        // 연습모드 여부에 따라 서로 다른 테이블(실제 공연 좌석 vs 레이아웃 좌석 템플릿)의 상태를 비교
-        if (claims.practiceMode()) {
-            validateLayoutSeats(scheduleId, seatIds);
-        } else {
-            validateSeats(scheduleId, seatIds);
-        }
+        return businessMetrics.record("seat.hold", mode(claims), () -> {
+            entryTokenValidator.validateSchedule(claims, scheduleId);
+            List<Long> seatIds = validateSeatIds(requestedSeatIds);
 
-        // Redis 선점 만료기한(TTL) 설정
-        Instant expiresAt = Instant.now().plus(properties.ttl());
-        SeatHold hold = new SeatHold(
-                UUID.randomUUID().toString(),
-                scheduleId,
-                claims.userId(),
-                claims.jti(),
-                claims.practiceSessionId(),
-                seatIds,
-                expiresAt
-        );
-        
-        // Redis에 선점 레코드 삽입 (Lua 스크립트 등을 이용해 원자성 보장)
-        SeatHoldResult result = holdRedisRepository.hold(
-                hold,
-                properties.ttl().toMillis()
-        );
+            if (claims.practiceMode()) {
+                validateLayoutSeats(scheduleId, seatIds);
+            } else {
+                validateSeats(scheduleId, seatIds);
+            }
 
-        if (!result.success()) {
-            throw new CustomException(ErrorCode.SEAT_NOT_AVAILABLE);
-        }
-        return SeatHoldResponseDto.from(hold);
+            Instant expiresAt = Instant.now().plus(properties.ttl());
+            SeatHold hold = new SeatHold(
+                    UUID.randomUUID().toString(),
+                    scheduleId,
+                    claims.userId(),
+                    claims.jti(),
+                    claims.practiceSessionId(),
+                    seatIds,
+                    expiresAt
+            );
+
+            SeatHoldResult result = holdRedisRepository.hold(
+                    hold,
+                    properties.ttl().toMillis()
+            );
+
+            if (!result.success()) {
+                throw new CustomException(ErrorCode.SEAT_NOT_AVAILABLE);
+            }
+            return SeatHoldResponseDto.from(hold);
+        });
     }
 
     /**
@@ -127,13 +130,15 @@ public class SeatHoldService {
      * @return 해제된 선점 상태 Dto
      */
     public SeatHoldResponseDto release(String holdId, EntryTokenClaims claims) {
-        SeatHold hold = findHold(holdId, claims.practiceSessionId());
-        validateHoldAccess(hold, claims);
+        return businessMetrics.record("seat.hold.release", mode(claims), () -> {
+            SeatHold hold = findHold(holdId, claims.practiceSessionId());
+            validateHoldAccess(hold, claims);
 
-        if (!holdRedisRepository.release(hold)) {
-            throw new CustomException(ErrorCode.SEAT_HOLD_NOT_FOUND);
-        }
-        return SeatHoldResponseDto.from(hold);
+            if (!holdRedisRepository.release(hold)) {
+                throw new CustomException(ErrorCode.SEAT_HOLD_NOT_FOUND);
+            }
+            return SeatHoldResponseDto.from(hold);
+        });
     }
 
     /**
@@ -271,5 +276,12 @@ public class SeatHoldService {
         }
         return holdPracticeSessionId.equals(tokenPracticeSessionId);
     }
+    private String mode(EntryTokenClaims claims) {
+        if (claims == null || !claims.practiceMode()) {
+            return "real";
+        }
+        return "practice";
+    }
+
 }
 

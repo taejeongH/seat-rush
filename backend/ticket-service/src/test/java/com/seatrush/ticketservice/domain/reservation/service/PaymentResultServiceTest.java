@@ -53,7 +53,10 @@ class PaymentResultServiceTest {
                 reservationRepository,
                 holdReleaseService,
                 entrySlotReleaseOutboxWriter,
-                notificationEventOutboxWriter
+                notificationEventOutboxWriter,
+                new com.seatrush.ticketservice.common.metrics.BusinessMetrics(
+                        new io.micrometer.core.instrument.simple.SimpleMeterRegistry()
+                )
         );
     }
 

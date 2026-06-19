@@ -52,7 +52,10 @@ class SeatHoldServiceTest {
                 layoutQueryService,
                 holdRedisRepository,
                 entryTokenValidator,
-                new SeatHoldProperties(Duration.ofMinutes(5), 4)
+                new SeatHoldProperties(Duration.ofMinutes(5), 4),
+                new com.seatrush.ticketservice.common.metrics.BusinessMetrics(
+                        new io.micrometer.core.instrument.simple.SimpleMeterRegistry()
+                )
         );
     }
 

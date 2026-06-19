@@ -25,6 +25,25 @@ spring:
 server:
   port: 8082
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        seat.rush.business.duration: true
+      percentiles:
+        http.server.requests: 0.9,0.95,0.99
+        seat.rush.business.duration: 0.9,0.95,0.99
+
 schedule:
   # Ticket Service의 LocalDateTime을 Redis epoch millis로 변환할 때 사용하는 기준 시간대입니다.
   time-zone: ${SCHEDULE_TIME_ZONE:Asia/Seoul}

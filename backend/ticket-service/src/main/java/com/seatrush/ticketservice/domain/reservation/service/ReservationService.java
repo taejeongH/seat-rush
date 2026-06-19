@@ -1,6 +1,7 @@
 package com.seatrush.ticketservice.domain.reservation.service;
 
 import com.seatrush.ticketservice.common.exception.CustomException;
+import com.seatrush.ticketservice.common.metrics.BusinessMetrics;
 import com.seatrush.ticketservice.common.response.status.ErrorCode;
 import com.seatrush.ticketservice.domain.auth.entity.User;
 import com.seatrush.ticketservice.domain.auth.repository.UserRepository;
@@ -26,7 +27,7 @@ import java.time.LocalDateTime;
 
 /**
  * 예매 생성, 상세 조회, 사용자 취소 처리, 결제 요청 연동 등 핵심 예매 비즈니스 로직을 수행하는 서비스 클래스입니다.
- * 
+ *
  * 트랜잭션 정상 반영(Commit) 완료 시점에 연동되어 비동기로 선점 락을 해제하거나(Outbox 패턴 사용),
  * Kafka를 통해 연동 마이크로서비스로 결제 요청 및 진입 슬롯 반환 이벤트를 전송합니다.
  */
@@ -39,6 +40,7 @@ public class ReservationService {
     private final ReservationHoldReleaseService holdReleaseService;
     private final EntrySlotReleaseOutboxWriter entrySlotReleaseOutboxWriter;
     private final PaymentRequestOutboxWriter paymentRequestOutboxWriter;
+    private final BusinessMetrics businessMetrics;
 
     public ReservationService(
             ReservationRepository reservationRepository,
@@ -46,7 +48,8 @@ public class ReservationService {
             SeatRepository seatRepository,
             ReservationHoldReleaseService holdReleaseService,
             EntrySlotReleaseOutboxWriter entrySlotReleaseOutboxWriter,
-            PaymentRequestOutboxWriter paymentRequestOutboxWriter
+            PaymentRequestOutboxWriter paymentRequestOutboxWriter,
+            BusinessMetrics businessMetrics
     ) {
         this.reservationRepository = reservationRepository;
         this.userRepository = userRepository;
@@ -54,6 +57,7 @@ public class ReservationService {
         this.holdReleaseService = holdReleaseService;
         this.entrySlotReleaseOutboxWriter = entrySlotReleaseOutboxWriter;
         this.paymentRequestOutboxWriter = paymentRequestOutboxWriter;
+        this.businessMetrics = businessMetrics;
     }
 
     /**
@@ -71,33 +75,36 @@ public class ReservationService {
             Long userId,
             LocalDateTime expiresAt
     ) {
-        if (reservationRepository.existsByHoldId(hold.holdId())) {
-            throw new CustomException(ErrorCode.RESERVATION_ALREADY_EXISTS);
-        }
+        return businessMetrics.record("reservation.create", mode(hold), () -> {
+            if (reservationRepository.existsByHoldId(hold.holdId())) {
+                throw new CustomException(ErrorCode.RESERVATION_ALREADY_EXISTS);
+            }
 
-        // 1. 선점된 좌석 정보 조회 및 가용 여부 확인
-        List<Seat> seats = findReservationSeats(hold);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+            // 1. 선점된 좌석 정보 조회 및 가용 여부 확인
+            List<Seat> seats = findReservationSeats(hold);
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 2. 예매 엔티티 생성
-        Reservation reservation = Reservation.create(
-                user,
-                seats.getFirst().getSection().getSchedule(),
-                hold.holdId(),
-                hold.entryTokenId(),
-                seats,
-                expiresAt
-        );
+            // 2. 예매 엔티티 생성
+            Reservation reservation = Reservation.create(
+                    user,
+                    seats.getFirst().getSection().getSchedule(),
+                    hold.holdId(),
+                    hold.entryTokenId(),
+                    seats,
+                    expiresAt
+            );
 
-        try {
-            // DB에 영속화 및 제약조건 위반 즉시 감지를 위해 Flush 수행
-            reservationRepository.saveAndFlush(reservation);
-        } catch (DataIntegrityViolationException exception) {
-            throw new CustomException(ErrorCode.RESERVATION_ALREADY_EXISTS);
-        }
+            try {
+                // DB에 영속화 및 제약조건 위반 즉시 감지를 위해 Flush 수행
+                reservationRepository.saveAndFlush(reservation);
+            } catch (DataIntegrityViolationException exception) {
+                throw new CustomException(ErrorCode.RESERVATION_ALREADY_EXISTS);
+            }
 
-        return ReservationResponseDto.from(reservation);
+            return ReservationResponseDto.from(reservation);
+
+        });
     }
 
     /**
@@ -118,7 +125,7 @@ public class ReservationService {
 
     /**
      * 결제 대기 중인 예매를 사용자가 직접 취소(Cancel) 처리합니다.
-     * 
+     *
      * - 만약 취소 시점에 이미 결제 유효시각이 지나있다면 만료(EXPIRED) 상태로 강제 전환합니다.
      * - 상태 변경에 따른 아웃박스 이벤트(진입 슬롯 해제 요청)를 생성합니다.
      * - DB 트랜잭션이 성공적으로 커밋되면 연동된 Redis의 좌석 선점(Hold)도 즉시 비동기적으로 해제합니다.
@@ -162,7 +169,7 @@ public class ReservationService {
 
     /**
      * 예매 건에 대해 최종 결제(Payment) 처리를 연동 요청합니다.
-     * 
+     *
      * - 예매 상태를 결제 대기(PENDING_PAYMENT)에서 결제 중(PAYING) 상태로 안전하게 전환(낙관적 락 사용을 위해 select ... for update)합니다.
      * - 비동기 결제 처리를 위해 카프카에 전송할 Outbox 레코드를 데이터베이스에 추가 기입합니다.
      *
@@ -176,29 +183,32 @@ public class ReservationService {
             Long reservationId,
             Long userId
     ) {
-        // 동시성 처리를 위해 행 레벨 락 쿼리 수행
-        Reservation reservation = reservationRepository
-                .findByIdAndUserIdForUpdate(reservationId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESERVATION_NOT_FOUND));
-        LocalDateTime requestedAt = LocalDateTime.now();
-        String paymentId = UUID.randomUUID().toString();
+        return businessMetrics.record("reservation.payment.request", "real", () -> {
+            // 동시성 처리를 위해 행 레벨 락 쿼리 수행
+            Reservation reservation = reservationRepository
+                    .findByIdAndUserIdForUpdate(reservationId, userId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.RESERVATION_NOT_FOUND));
+            LocalDateTime requestedAt = LocalDateTime.now();
+            String paymentId = UUID.randomUUID().toString();
 
-        boolean requested;
-        try {
-            requested = reservation.requestPayment(paymentId, requestedAt);
-        } catch (IllegalStateException exception) {
-            if (reservation.getStatus() == ReservationStatus.PENDING_PAYMENT
-                    && !reservation.getExpiresAt().isAfter(requestedAt)) {
-                throw new CustomException(ErrorCode.RESERVATION_PAYMENT_EXPIRED, exception);
+            boolean requested;
+            try {
+                requested = reservation.requestPayment(paymentId, requestedAt);
+            } catch (IllegalStateException exception) {
+                if (reservation.getStatus() == ReservationStatus.PENDING_PAYMENT
+                        && !reservation.getExpiresAt().isAfter(requestedAt)) {
+                    throw new CustomException(ErrorCode.RESERVATION_PAYMENT_EXPIRED, exception);
+                }
+                throw new CustomException(ErrorCode.INVALID_RESERVATION_STATE, exception);
             }
-            throw new CustomException(ErrorCode.INVALID_RESERVATION_STATE, exception);
-        }
 
-        if (requested) {
-            // 결제 요청 이벤트를 동일한 DB 트랜잭션 내에서 Outbox 테이블에 추가 저장
-            paymentRequestOutboxWriter.append(reservation, requestedAt);
-        }
-        return PaymentRequestResponseDto.from(reservation);
+            if (requested) {
+                // 결제 요청 이벤트를 동일한 DB 트랜잭션 내에서 Outbox 테이블에 추가 저장
+                paymentRequestOutboxWriter.append(reservation, requestedAt);
+            }
+            return PaymentRequestResponseDto.from(reservation);
+
+        });
     }
 
     /**
@@ -247,5 +257,14 @@ public class ReservationService {
             holdReleaseService.releaseAfterCommit(reservation.getHoldId());
         }
     }
+    private String mode(SeatHold hold) {
+        if (hold == null
+                || hold.practiceSessionId() == null
+                || hold.practiceSessionId().isBlank()) {
+            return "real";
+        }
+        return "practice";
+    }
+
 }
 

@@ -1,6 +1,7 @@
 package com.seatrush.ticketservice.domain.reservation.service;
 
 import com.seatrush.ticketservice.common.exception.CustomException;
+import com.seatrush.ticketservice.common.metrics.BusinessMetrics;
 import com.seatrush.ticketservice.common.response.status.ErrorCode;
 import com.seatrush.ticketservice.domain.reservation.entity.PaymentResultApplyResult;
 import com.seatrush.ticketservice.domain.reservation.entity.Reservation;
@@ -17,9 +18,9 @@ import java.time.LocalDateTime;
 
 /**
  * 외부 결제 서비스로부터 Kafka를 통해 수신한 결제 처리 결과를 처리하는 서비스 클래스입니다.
- * 
+ *
  * 주요 설계 특징:
- * 1. 동시성 제어 및 상태 보호: {@link LockModeType#PESSIMISTIC_WRITE} 잠금을 사용하여 
+ * 1. 동시성 제어 및 상태 보호: {@link LockModeType#PESSIMISTIC_WRITE} 잠금을 사용하여
  *    동일 예매 건에 대해 다수의 결제 결과 이벤트가 동시에 처리되는 상황을 방지하고 일관된 상태 전이를 보장합니다.
  * 2. 멱등성 보장: 결제 완료 또는 실패 처리가 이미 적용된 상태라면 중복 처리하지 않고 {@code ALREADY_APPLIED}를 반환합니다.
  * 3. Transactional Outbox 패턴: 결제 상태 변화와 관련된 부가 작업(사용자 알림 발송 및 대기열 슬롯 해제)을
@@ -34,17 +35,20 @@ public class PaymentResultService {
     private final ReservationHoldReleaseService holdReleaseService;
     private final EntrySlotReleaseOutboxWriter entrySlotReleaseOutboxWriter;
     private final NotificationEventOutboxWriter notificationEventOutboxWriter;
+    private final BusinessMetrics businessMetrics;
 
     public PaymentResultService(
             ReservationRepository reservationRepository,
             ReservationHoldReleaseService holdReleaseService,
             EntrySlotReleaseOutboxWriter entrySlotReleaseOutboxWriter,
-            NotificationEventOutboxWriter notificationEventOutboxWriter
+            NotificationEventOutboxWriter notificationEventOutboxWriter,
+            BusinessMetrics businessMetrics
     ) {
         this.reservationRepository = reservationRepository;
         this.holdReleaseService = holdReleaseService;
         this.entrySlotReleaseOutboxWriter = entrySlotReleaseOutboxWriter;
         this.notificationEventOutboxWriter = notificationEventOutboxWriter;
+        this.businessMetrics = businessMetrics;
     }
 
     /**
@@ -57,48 +61,50 @@ public class PaymentResultService {
      */
     @Transactional
     public PaymentResultApplyResult apply(PaymentResultEvent event) {
-        // 1. 필수 필드 검증 (Null Check)
-        validateRequiredFields(event);
+        return businessMetrics.record("payment_result.apply", "real", () -> {
+            // 1. 필수 필드 검증 (Null Check)
+            validateRequiredFields(event);
 
-        // 2. 비관적 쓰기 잠금(PESSIMISTIC_WRITE)을 적용하여 예매 및 연관 사용자 엔티티 조회
-        //    동일 예매 건에 대한 중복 처리나 상태 변경 경쟁 상태를 원천 차단합니다.
-        Reservation reservation = reservationRepository
-                .findByIdForPaymentResultUpdate(event.reservationId())
-                .orElseThrow(() -> new CustomException(ErrorCode.RESERVATION_NOT_FOUND));
+            // 2. 비관적 쓰기 잠금(PESSIMISTIC_WRITE)을 적용하여 예매 및 연관 사용자 엔티티 조회
+            //    동일 예매 건에 대한 중복 처리나 상태 변경 경쟁 상태를 원천 차단합니다.
+            Reservation reservation = reservationRepository
+                    .findByIdForPaymentResultUpdate(event.reservationId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.RESERVATION_NOT_FOUND));
 
-        // 3. 결제 식별자, 결제 요청자, 결제 금액이 실제 예매 데이터와 일치하는지 무결성 검증
-        validateEvent(reservation, event);
+            // 3. 결제 식별자, 결제 요청자, 결제 금액이 실제 예매 데이터와 일치하는지 무결성 검증
+            validateEvent(reservation, event);
 
-        // 4. 결제 결과(SUCCESS/FAIL)에 따른 예매 상태 전이 수행 (멱등성 판단 포함)
-        PaymentResultApplyResult result;
-        try {
-            result = event.status() == PaymentResultStatus.SUCCESS
-                    ? reservation.confirmPayment()
-                    : reservation.failPayment();
-        } catch (IllegalStateException exception) {
-            // 예매 상태 전이가 올바르지 않은 경우 (예: 이미 만료된 예약에 대해 결제 성공 처리가 온 경우 등)
-            throw new CustomException(ErrorCode.PAYMENT_RESULT_STATE_CONFLICT, exception);
-        }
+            // 4. 결제 결과(SUCCESS/FAIL)에 따른 예매 상태 전이 수행 (멱등성 판단 포함)
+            PaymentResultApplyResult result;
+            try {
+                result = event.status() == PaymentResultStatus.SUCCESS
+                        ? reservation.confirmPayment()
+                        : reservation.failPayment();
+            } catch (IllegalStateException exception) {
+                // 예매 상태 전이가 올바르지 않은 경우 (예: 이미 만료된 예약에 대해 결제 성공 처리가 온 경우 등)
+                throw new CustomException(ErrorCode.PAYMENT_RESULT_STATE_CONFLICT, exception);
+            }
 
-        // 5. 신규로 상태가 반영된 경우에만 Transactional Outbox 메시지 기록
-        if (result == PaymentResultApplyResult.APPLIED) {
-            LocalDateTime occurredAt = LocalDateTime.now();
-            
-            // 알림 메시지 발송을 위한 Outbox 등록
-            appendNotificationEvent(reservation, event.status(), occurredAt);
-            
-            // 대기열 서비스에 해당 사용자의 슬롯이 반환되도록 대기열 해제용 Outbox 등록
-            entrySlotReleaseOutboxWriter.append(
-                    reservation,
-                    releaseReason(event.status()),
-                    occurredAt
-            );
-        }
+            // 5. 신규로 상태가 반영된 경우에만 Transactional Outbox 메시지 기록
+            if (result == PaymentResultApplyResult.APPLIED) {
+                LocalDateTime occurredAt = LocalDateTime.now();
 
-        // 6. DB 커밋 완료 이후 Redis의 좌석 선점을 안전하게 해제하도록 리스너 등록
-        holdReleaseService.releaseAfterCommit(reservation.getHoldId());
-        
-        return result;
+                // 알림 메시지 발송을 위한 Outbox 등록
+                appendNotificationEvent(reservation, event.status(), occurredAt);
+
+                // 대기열 서비스에 해당 사용자의 슬롯이 반환되도록 대기열 해제용 Outbox 등록
+                entrySlotReleaseOutboxWriter.append(
+                        reservation,
+                        releaseReason(event.status()),
+                        occurredAt
+                );
+            }
+
+            // 6. DB 커밋 완료 이후 Redis의 좌석 선점을 안전하게 해제하도록 리스너 등록
+            holdReleaseService.releaseAfterCommit(reservation.getHoldId());
+
+            return result;
+        });
     }
 
     /**
