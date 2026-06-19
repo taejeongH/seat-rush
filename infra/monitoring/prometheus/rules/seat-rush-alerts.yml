@@ -1,0 +1,112 @@
+groups:
+  - name: seat-rush-service-alerts
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"spring-applications|mysql|redis|kafka"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service target is down"
+          description: "{{ $labels.job }} {{ $labels.instance }} has been down for more than 2 minutes."
+
+      - alert: HighHttpServerErrorRate
+        expr: sum by (application) (rate(http_server_requests_seconds_count{status=~"5.."}[5m])) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP 5xx rate"
+          description: "{{ $labels.application }} is returning more than 0.1 HTTP 5xx responses per second."
+
+      - alert: HighHttpP95Latency
+        expr: histogram_quantile(0.95, sum by (le, application) (rate(http_server_requests_seconds_bucket[5m]))) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP p95 latency"
+          description: "{{ $labels.application }} p95 latency is above 1 second."
+
+      - alert: HighHttpP99Latency
+        expr: histogram_quantile(0.99, sum by (le, application) (rate(http_server_requests_seconds_bucket[5m]))) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP p99 latency"
+          description: "{{ $labels.application }} p99 latency is above 2 seconds."
+
+      - alert: BusinessOperationFailureRate
+        expr: sum by (operation, mode) (rate(seat_rush_business_events_total{result="failure"}[5m])) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High business operation failure rate"
+          description: "{{ $labels.operation }} / {{ $labels.mode }} is failing more than 0.1 times per second."
+
+      - alert: HighJvmMemoryUsage
+        expr: sum by (application) (jvm_memory_used_bytes{area="heap"}) / sum by (application) (jvm_memory_max_bytes{area="heap"}) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High JVM heap usage"
+          description: "{{ $labels.application }} heap usage is above 85%."
+
+      - alert: HikariConnectionPoolSaturation
+        expr: hikaricp_connections_active / hikaricp_connections_max > 0.85
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High DB connection pool usage"
+          description: "{{ $labels.application }} HikariCP active connections are above 85%."
+
+  - name: seat-rush-infra-alerts
+    rules:
+      - alert: HighHostCpuUsage
+        expr: 1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High host CPU usage"
+          description: "Host CPU usage is above 80% for 10 minutes."
+
+      - alert: HighHostMemoryUsage
+        expr: 1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High host memory usage"
+          description: "Host memory usage is above 85% for 10 minutes."
+
+      - alert: LowDiskSpace
+        expr: 1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space"
+          description: "{{ $labels.mountpoint }} disk usage is above 85%."
+
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "{{ $labels.redis }} Redis exporter reports redis_up=0."
+
+      - alert: KafkaBrokerUnavailable
+        expr: kafka_brokers < 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka broker unavailable"
+          description: "Kafka exporter cannot see an available broker."

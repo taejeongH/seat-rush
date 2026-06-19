@@ -229,6 +229,13 @@ jobs:
           git pull --ff-only origin main
           IMAGE_TAG="$IMAGE_TAG" sh infra/scripts/deploy-server.sh
 
+      - name: Deploy monitoring stack
+        env:
+          APP_DIR: ${{ vars.EC2_APP_DIR }}
+        run: |
+          cd "$APP_DIR"
+          sh infra/scripts/deploy-monitoring.sh
+
       - name: Verify deployment
         env:
           APP_DIR: ${{ vars.EC2_APP_DIR }}
