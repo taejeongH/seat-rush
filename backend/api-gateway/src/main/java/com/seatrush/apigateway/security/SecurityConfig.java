@@ -67,7 +67,7 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.GET, "/api/seat-layouts/**").permitAll()
                         .pathMatchers(HttpMethod.POST, "/api/practice/queues/sessions").permitAll()
                         .pathMatchers(HttpMethod.DELETE, "/api/practice/queues/sessions/**").permitAll()
-                        .pathMatchers("/health", "/error").permitAll()
+                        .pathMatchers("/health", "/actuator/**", "/error").permitAll()
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .authenticationEntryPoint(authenticationEntryPoint)

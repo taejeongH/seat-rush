@@ -1,6 +1,7 @@
 package com.seatrush.queueservice.domain.queue.service;
 
 import com.seatrush.queueservice.common.exception.CustomException;
+import com.seatrush.queueservice.common.metrics.BusinessMetrics;
 import com.seatrush.queueservice.common.response.status.ErrorCode;
 import com.seatrush.queueservice.domain.queue.QueueStatus;
 import com.seatrush.queueservice.domain.queue.config.QueueAdmissionProperties;
@@ -25,15 +26,18 @@ public class QueueService {
     private final QueueRedisRepository queueRedisRepository;
     private final QueueAdmissionProperties admissionProperties;
     private final QueuePracticeProperties practiceProperties;
+    private final BusinessMetrics businessMetrics;
 
     public QueueService(
             QueueRedisRepository queueRedisRepository,
             QueueAdmissionProperties admissionProperties,
-            QueuePracticeProperties practiceProperties
+            QueuePracticeProperties practiceProperties,
+            BusinessMetrics businessMetrics
     ) {
         this.queueRedisRepository = queueRedisRepository;
         this.admissionProperties = admissionProperties;
         this.practiceProperties = practiceProperties;
+        this.businessMetrics = businessMetrics;
     }
 
     /**
@@ -47,23 +51,25 @@ public class QueueService {
      * 지정된 회차 또는 연습 세션 대기열에 사용자를 진입시킵니다.
      */
     public QueueJoinResponseDto join(Long scheduleId, Long userId, String practiceSessionId) {
-        QueueJoinResult joinResult = queueRedisRepository.join(
-                scheduleId,
-                userId,
-                sessionTtlMillis(),
-                practiceSessionId
-        );
-        validateScheduleState(joinResult.position());
-        expirePracticeSessionKeys(scheduleId, practiceSessionId);
-        long totalWaiting = queueRedisRepository.getWaitingCount(scheduleId, practiceSessionId);
+        return businessMetrics.record("queue.join", mode(practiceSessionId), () -> {
+            QueueJoinResult joinResult = queueRedisRepository.join(
+                    scheduleId,
+                    userId,
+                    sessionTtlMillis(),
+                    practiceSessionId
+            );
+            validateScheduleState(joinResult.position());
+            expirePracticeSessionKeys(scheduleId, practiceSessionId);
+            long totalWaiting = queueRedisRepository.getWaitingCount(scheduleId, practiceSessionId);
 
-        return new QueueJoinResponseDto(
-                scheduleId,
-                joinResult.position(),
-                totalWaiting,
-                QueueStatus.WAITING,
-                joinResult.alreadyJoined()
-        );
+            return new QueueJoinResponseDto(
+                    scheduleId,
+                    joinResult.position(),
+                    totalWaiting,
+                    QueueStatus.WAITING,
+                    joinResult.alreadyJoined()
+            );
+        });
     }
 
     /**
@@ -81,26 +87,28 @@ public class QueueService {
             Long userId,
             String practiceSessionId
     ) {
-        QueueAdmissionState state = queueRedisRepository.getAdmissionState(
-                scheduleId,
-                userId,
-                admissionProperties.capacity(),
-                sessionTtlMillis(),
-                practiceSessionId
-        );
+        return businessMetrics.record("queue.position", mode(practiceSessionId), () -> {
+            QueueAdmissionState state = queueRedisRepository.getAdmissionState(
+                    scheduleId,
+                    userId,
+                    admissionProperties.capacity(),
+                    sessionTtlMillis(),
+                    practiceSessionId
+            );
 
-        if (state.position() == -1) {
-            throw new CustomException(ErrorCode.QUEUE_ENTRY_NOT_FOUND);
-        }
+            if (state.position() == -1) {
+                throw new CustomException(ErrorCode.QUEUE_ENTRY_NOT_FOUND);
+            }
 
-        expirePracticeSessionKeys(scheduleId, practiceSessionId);
+            expirePracticeSessionKeys(scheduleId, practiceSessionId);
 
-        return new QueuePositionResponseDto(
-                scheduleId,
-                state.position(),
-                state.totalWaiting(),
-                state.enterable() ? QueueStatus.ENTERABLE : QueueStatus.WAITING
-        );
+            return new QueuePositionResponseDto(
+                    scheduleId,
+                    state.position(),
+                    state.totalWaiting(),
+                    state.enterable() ? QueueStatus.ENTERABLE : QueueStatus.WAITING
+            );
+        });
     }
 
     /**
@@ -114,15 +122,17 @@ public class QueueService {
      * 지정된 회차 또는 연습 세션 대기열 세션이 살아 있음을 Redis에 갱신합니다.
      */
     public void heartbeat(Long scheduleId, Long userId, String practiceSessionId) {
-        if (!queueRedisRepository.heartbeat(
-                scheduleId,
-                userId,
-                sessionTtlMillis(),
-                practiceSessionId
-        )) {
-            throw new CustomException(ErrorCode.QUEUE_ENTRY_NOT_FOUND);
-        }
-        expirePracticeSessionKeys(scheduleId, practiceSessionId);
+        businessMetrics.record("queue.heartbeat", mode(practiceSessionId), () -> {
+            if (!queueRedisRepository.heartbeat(
+                    scheduleId,
+                    userId,
+                    sessionTtlMillis(),
+                    practiceSessionId
+            )) {
+                throw new CustomException(ErrorCode.QUEUE_ENTRY_NOT_FOUND);
+            }
+            expirePracticeSessionKeys(scheduleId, practiceSessionId);
+        });
     }
 
     /**
@@ -167,6 +177,12 @@ public class QueueService {
 
     private long sessionTtlMillis() {
         return admissionProperties.sessionTtl().toMillis();
+    }
+
+    private String mode(String practiceSessionId) {
+        return practiceSessionId == null || practiceSessionId.isBlank()
+                ? "real"
+                : "practice";
     }
 
     private void validateScheduleState(long position) {

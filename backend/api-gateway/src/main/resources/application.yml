@@ -45,6 +45,25 @@ spring:
 server:
   port: 8080
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        seat.rush.business.duration: true
+      percentiles:
+        http.server.requests: 0.9,0.95,0.99
+        seat.rush.business.duration: 0.9,0.95,0.99
+
 jwt:
   issuer: seat-rush-ticket-service
   public-key-location: classpath:cert/public-key.pem

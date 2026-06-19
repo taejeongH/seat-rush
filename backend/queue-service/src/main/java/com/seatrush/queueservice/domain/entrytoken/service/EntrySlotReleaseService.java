@@ -1,6 +1,7 @@
 package com.seatrush.queueservice.domain.entrytoken.service;
 
 import com.seatrush.queueservice.common.exception.CustomException;
+import com.seatrush.queueservice.common.metrics.BusinessMetrics;
 import com.seatrush.queueservice.common.response.status.ErrorCode;
 import com.seatrush.queueservice.domain.entrytoken.event.EntrySlotReleaseEvent;
 import com.seatrush.queueservice.domain.entrytoken.repository.EntryTokenRedisRepository;
@@ -13,22 +14,38 @@ import org.springframework.stereotype.Service;
 public class EntrySlotReleaseService {
 
     private final EntryTokenRedisRepository entryTokenRedisRepository;
+    private final BusinessMetrics businessMetrics;
 
-    public EntrySlotReleaseService(EntryTokenRedisRepository entryTokenRedisRepository) {
+    public EntrySlotReleaseService(
+            EntryTokenRedisRepository entryTokenRedisRepository,
+            BusinessMetrics businessMetrics
+    ) {
         this.entryTokenRedisRepository = entryTokenRedisRepository;
+        this.businessMetrics = businessMetrics;
     }
 
     /**
      * 예매 완료, 실패, 취소, 만료 이벤트를 기반으로 활성 입장 슬롯을 반환합니다.
      */
     public boolean release(EntrySlotReleaseEvent event) {
-        validate(event);
-        return entryTokenRedisRepository.releaseSlot(
-                event.scheduleId(),
-                event.userId(),
-                event.entryTokenId(),
-                event.practiceSessionId()
-        );
+        return businessMetrics.record("entry_slot.release", mode(event), () -> {
+            validate(event);
+            return entryTokenRedisRepository.releaseSlot(
+                    event.scheduleId(),
+                    event.userId(),
+                    event.entryTokenId(),
+                    event.practiceSessionId()
+            );
+        });
+    }
+
+    private String mode(EntrySlotReleaseEvent event) {
+        if (event == null
+                || event.practiceSessionId() == null
+                || event.practiceSessionId().isBlank()) {
+            return "real";
+        }
+        return "practice";
     }
 
     private void validate(EntrySlotReleaseEvent event) {

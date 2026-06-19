@@ -1,6 +1,7 @@
 package com.seatrush.queueservice.domain.entrytoken.service;
 
 import com.seatrush.queueservice.common.exception.CustomException;
+import com.seatrush.queueservice.common.metrics.BusinessMetrics;
 import com.seatrush.queueservice.common.response.status.ErrorCode;
 import com.seatrush.queueservice.domain.entrytoken.EntryTokenCandidate;
 import com.seatrush.queueservice.domain.entrytoken.EntryTokenProvider;
@@ -30,6 +31,7 @@ public class EntryTokenService {
     private final QueueAdmissionProperties admissionProperties;
     private final QueuePracticeProperties practiceProperties;
     private final QueueRedisRepository queueRedisRepository;
+    private final BusinessMetrics businessMetrics;
 
     public EntryTokenService(
             EntryTokenRedisRepository entryTokenRedisRepository,
@@ -37,7 +39,8 @@ public class EntryTokenService {
             EntryTokenProperties properties,
             QueueAdmissionProperties admissionProperties,
             QueuePracticeProperties practiceProperties,
-            QueueRedisRepository queueRedisRepository
+            QueueRedisRepository queueRedisRepository,
+            BusinessMetrics businessMetrics
     ) {
         this.entryTokenRedisRepository = entryTokenRedisRepository;
         this.entryTokenProvider = entryTokenProvider;
@@ -45,6 +48,7 @@ public class EntryTokenService {
         this.admissionProperties = admissionProperties;
         this.practiceProperties = practiceProperties;
         this.queueRedisRepository = queueRedisRepository;
+        this.businessMetrics = businessMetrics;
     }
 
     /**
@@ -62,48 +66,56 @@ public class EntryTokenService {
             Long userId,
             String practiceSessionId
     ) {
-        EntryTokenCandidate candidate = entryTokenProvider.create(
-                scheduleId,
-                userId,
-                practiceSessionId
-        );
-        EntryTokenIssueResult result = entryTokenRedisRepository.issue(
-                scheduleId,
-                userId,
-                candidate.token(),
-                candidate.jti(),
-                admissionProperties.capacity(),
-                properties.ttl().toMillis(),
-                practiceSessionId
-        );
+        return businessMetrics.record("entry_token.issue", mode(practiceSessionId), () -> {
+            EntryTokenCandidate candidate = entryTokenProvider.create(
+                    scheduleId,
+                    userId,
+                    practiceSessionId
+            );
+            EntryTokenIssueResult result = entryTokenRedisRepository.issue(
+                    scheduleId,
+                    userId,
+                    candidate.token(),
+                    candidate.jti(),
+                    admissionProperties.capacity(),
+                    properties.ttl().toMillis(),
+                    practiceSessionId
+            );
 
-        if (result.status() == EntryTokenIssueStatus.QUEUE_ENTRY_NOT_FOUND) {
-            throw new CustomException(ErrorCode.QUEUE_ENTRY_NOT_FOUND);
-        }
+            if (result.status() == EntryTokenIssueStatus.QUEUE_ENTRY_NOT_FOUND) {
+                throw new CustomException(ErrorCode.QUEUE_ENTRY_NOT_FOUND);
+            }
 
-        if (result.status() == EntryTokenIssueStatus.ENTRY_NOT_ALLOWED) {
-            throw new CustomException(ErrorCode.ENTRY_NOT_ALLOWED);
-        }
+            if (result.status() == EntryTokenIssueStatus.ENTRY_NOT_ALLOWED) {
+                throw new CustomException(ErrorCode.ENTRY_NOT_ALLOWED);
+            }
 
-        if (result.status() == EntryTokenIssueStatus.SCHEDULE_NOT_FOUND) {
-            throw new CustomException(ErrorCode.SCHEDULE_NOT_FOUND);
-        }
+            if (result.status() == EntryTokenIssueStatus.SCHEDULE_NOT_FOUND) {
+                throw new CustomException(ErrorCode.SCHEDULE_NOT_FOUND);
+            }
 
-        if (result.status() == EntryTokenIssueStatus.QUEUE_NOT_OPEN) {
-            throw new CustomException(ErrorCode.QUEUE_NOT_OPEN);
-        }
+            if (result.status() == EntryTokenIssueStatus.QUEUE_NOT_OPEN) {
+                throw new CustomException(ErrorCode.QUEUE_NOT_OPEN);
+            }
 
-        queueRedisRepository.expirePracticeSessionKeys(
-                scheduleId,
-                practiceSessionId,
-                practiceProperties.dataTtl()
-        );
+            queueRedisRepository.expirePracticeSessionKeys(
+                    scheduleId,
+                    practiceSessionId,
+                    practiceProperties.dataTtl()
+            );
 
-        return new EntryTokenIssueResponseDto(
-                scheduleId,
-                result.entryToken(),
-                Instant.ofEpochMilli(result.expiresAt()),
-                result.status() == EntryTokenIssueStatus.ALREADY_ISSUED
-        );
+            return new EntryTokenIssueResponseDto(
+                    scheduleId,
+                    result.entryToken(),
+                    Instant.ofEpochMilli(result.expiresAt()),
+                    result.status() == EntryTokenIssueStatus.ALREADY_ISSUED
+            );
+        });
+    }
+
+    private String mode(String practiceSessionId) {
+        return practiceSessionId == null || practiceSessionId.isBlank()
+                ? "real"
+                : "practice";
     }
 }

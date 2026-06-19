@@ -27,7 +27,12 @@ class EntrySlotReleaseServiceTest {
     @BeforeEach
     void setUp() {
         entryTokenRedisRepository = mock(EntryTokenRedisRepository.class);
-        service = new EntrySlotReleaseService(entryTokenRedisRepository);
+        service = new EntrySlotReleaseService(
+                entryTokenRedisRepository,
+                new com.seatrush.queueservice.common.metrics.BusinessMetrics(
+                        new io.micrometer.core.instrument.simple.SimpleMeterRegistry()
+                )
+        );
     }
 
     /**

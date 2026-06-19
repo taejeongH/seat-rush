@@ -62,7 +62,10 @@ class ReservationServiceTest {
                 seatRepository,
                 holdReleaseService,
                 entrySlotReleaseOutboxWriter,
-                paymentRequestOutboxWriter
+                paymentRequestOutboxWriter,
+                new com.seatrush.ticketservice.common.metrics.BusinessMetrics(
+                        new io.micrometer.core.instrument.simple.SimpleMeterRegistry()
+                )
         );
     }
 
