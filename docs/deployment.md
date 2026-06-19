@@ -1,8 +1,8 @@
-# Seat Rush 1차 클라우드 배포
+# Seat Rush 운영 배포 문서
 
-## 구성
+## 배포 구조
 
-1차 배포는 비용을 줄이기 위해 애플리케이션과 메시징 인프라를 하나의 EC2에서 컨테이너로 실행한다.
+1차 운영 환경은 비용을 줄이기 위해 하나의 EC2에서 여러 컨테이너를 실행합니다.
 
 ```text
 Internet
@@ -21,39 +21,24 @@ API Gateway
 Ticket Service -----------> Seat Redis
 Notification Consumer ---> Notification Redis
 Ticket / Queue / Payment / Notification <-> Kafka
+
+Prometheus -> Spring Actuator, exporter
+Grafana    -> Prometheus
+Alertmanager <- Prometheus alert rules
 ```
 
-- 외부 공개 포트는 `80`, `443`만 사용한다.
-- Gateway와 각 서비스, Redis, Kafka는 Docker 내부 네트워크에서만 접근한다.
-- 서버와 인프라 Compose는 `seat-rush-production-network`를 공유한다.
-- MySQL은 Docker 내부 네트워크에만 연결하고 외부에 `3306`을 공개하지 않는다.
-- Nginx가 외부 요청을 분배하고 Certbot이 Let's Encrypt 인증서를 발급·갱신한다.
+외부 공개 포트는 `80`, `443`만 사용합니다. Grafana와 Prometheus는 EC2 내부 `127.0.0.1`에만 바인딩하고 SSH 터널로 접근합니다.
 
-운영 Compose는 변경 주기에 따라 분리한다.
+## 권장 인스턴스
 
-| 파일 | 구성 | 일반적인 변경 주기 |
-| --- | --- | --- |
-| `docker-compose.infra.yml` | MySQL, Kafka, Redis | 낮음 |
-| `docker-compose.server.yml` | 프론트, Gateway, Spring 서비스, Nginx, Certbot | 높음 |
+비용을 줄이면서 전체 컨테이너를 동시에 실행하려면 ARM 기반 인스턴스를 우선 고려합니다.
 
-## 권장 사양
+| 목적 | 권장 |
+| --- | --- |
+| 기능 검증 | `t4g.medium` |
+| 부하 테스트와 모니터링 동시 실행 | `t4g.large` |
 
-- EC2: Amazon Linux 2023 ARM, `t4g.large` 권장
-- Storage: gp3 30GB 이상
-
-MySQL, Kafka와 Spring Boot 서비스 5개를 동시에 실행하므로 4GB 메모리에서는 여유가 작다. 비용 때문에 `t4g.medium`을 사용한다면 Swap 설정과 실제 메모리 사용량 확인이 필요하다.
-
-## 네트워크
-
-### EC2 보안 그룹
-
-| 포트 | 소스 | 용도 |
-| --- | --- | --- |
-| `22` | 관리자 IP | SSH |
-| `80` | `0.0.0.0/0`, `::/0` | HTTP 및 인증서 발급 |
-| `443` | `0.0.0.0/0`, `::/0` | HTTPS |
-
-`8080`부터 `8084`, Redis, Kafka 포트는 외부에 개방하지 않는다.
+MySQL, Kafka, Redis 3개, Spring 서비스 5개, 모니터링 stack까지 함께 실행하면 메모리 여유가 빠르게 줄어듭니다. `t4g.medium`을 사용할 경우 부하 테스트 시 OOM 여부를 먼저 확인합니다.
 
 ## EC2 준비
 
@@ -64,13 +49,13 @@ sudo systemctl enable --now docker
 sudo usermod -aG docker ec2-user
 ```
 
-재접속한 뒤 Docker Compose를 확인한다.
+다시 SSH 접속한 뒤 Docker Compose를 확인합니다.
 
 ```bash
 docker compose version
 ```
 
-저장소를 내려받고 배포 파일을 준비한다.
+저장소를 내려받습니다.
 
 ```bash
 git clone <repository-url> seat-rush
@@ -78,22 +63,26 @@ cd seat-rush
 cp infra/.env.production.example infra/.env.production
 ```
 
-## MySQL 구성
+## 운영 환경변수
 
-MySQL은 `docker-compose.infra.yml`에서 실행한다. 첫 실행 시 초기화 스크립트가 데이터베이스와 서비스별 사용자를 자동 생성한다.
+`infra/.env.production`에 실제 값을 입력합니다.
 
-Flyway는 애플리케이션 시작 시 각 서비스가 소유한 데이터베이스에 마이그레이션을 적용한다.
+필수 값:
 
-- Ticket Service: `seat_rush_ticket`
-- Payment Service: `seat_rush_payment`
-- Ticket과 Payment는 서로 다른 DB 사용자를 사용한다.
-- MySQL 포트는 EC2 외부에 공개하지 않는다.
+- `DOMAIN`
+- `CERTBOT_EMAIL`
+- `MYSQL_ROOT_PASSWORD`
+- `TICKET_DB_NAME`
+- `TICKET_DB_USERNAME`
+- `TICKET_DB_PASSWORD`
+- `PAYMENT_DB_NAME`
+- `PAYMENT_DB_USERNAME`
+- `PAYMENT_DB_PASSWORD`
+- `GRAFANA_ADMIN_PASSWORD`
 
-초기화 스크립트는 MySQL 볼륨이 비어 있는 첫 실행에만 동작한다. DB 이름이나 계정을 변경하려면 기존 데이터를 백업한 뒤 직접 변경하거나 새 볼륨으로 초기화해야 한다.
+## 인증 키 생성
 
-## 인증 키
-
-키 파일은 Git에 커밋하지 않고 EC2의 `infra/secrets`에만 저장한다.
+JWT와 entryToken 서명 키는 EC2의 `infra/secrets`에만 보관합니다.
 
 ```bash
 mkdir -p infra/secrets
@@ -117,160 +106,129 @@ openssl rsa \
 chmod 644 infra/secrets/*.pem
 ```
 
-필요한 파일은 다음과 같다.
+## 최초 배포
 
-```text
-infra/secrets/
-  access-token-private-key.pem
-  access-token-public-key.pem
-  entry-token-private-key.pem
-  entry-token-public-key.pem
-```
-
-## 환경변수
-
-`infra/.env.production`에서 다음 값을 설정한다.
-
-- `DOMAIN`
-- `CERTBOT_EMAIL`
-- `MYSQL_ROOT_PASSWORD`
-- Ticket DB 이름, 사용자, 비밀번호
-- Payment DB 이름, 사용자, 비밀번호
-- 토큰 TTL과 대기열 입장 허용 인원
-
-`.env.production`과 PEM 키는 `.gitignore` 대상이다.
-
-## 도메인과 HTTPS
-
-1. EC2에 Elastic IP를 연결한다.
-2. Route 53 또는 사용 중인 DNS에서 도메인의 `A` 레코드를 Elastic IP로 지정한다.
-3. EC2 보안 그룹의 `80`, `443` 포트를 연다.
-4. `DOMAIN`과 `CERTBOT_EMAIL`을 입력하고 Compose를 실행한다.
-
-최초 배포 시 `initialize-https.sh`가 다음 순서로 인증서를 구성한다.
-
-1. HTTP 인증 전용 Nginx 실행
-2. Certbot webroot 방식으로 Let's Encrypt 인증서 발급
-3. 인증 전용 Nginx 종료
-4. 실제 인증서를 사용하는 운영 Nginx 실행
-
-Certbot은 12시간마다 갱신 여부를 확인한다.
-
-## 배포
-
-최초 배포에서는 인프라와 서버를 순서대로 실행한다.
+인프라와 서버를 순서대로 실행합니다.
 
 ```bash
 sh infra/scripts/deploy.sh
 ```
 
-이후 애플리케이션 배포에서는 GHCR 이미지를 받아 컨테이너만 교체한다.
+HTTPS 인증서를 초기화합니다.
+
+```bash
+sh infra/scripts/initialize-https.sh
+```
+
+모니터링 stack을 실행합니다.
+
+```bash
+sh infra/scripts/deploy-monitoring.sh
+```
+
+## 애플리케이션 재배포
+
+이미 인프라가 살아 있다면 서버 컨테이너만 갱신합니다.
 
 ```bash
 sh infra/scripts/deploy-server.sh
 ```
 
-GHCR을 사용할 수 없거나 EC2에서 직접 이미지를 빌드해야 할 때만 다음 명령을 사용한다.
-
-```bash
-sh infra/scripts/deploy-server-local-build.sh
-```
-
-MySQL, Kafka 또는 Redis 구성을 변경했을 때만 인프라를 갱신한다.
-
-```bash
-sh infra/scripts/deploy-infra.sh
-```
-
-상태와 로그를 확인한다.
-
-```bash
-docker compose \
-  -f infra/docker-compose.infra.yml \
-  ps
-
-docker compose \
-  --env-file infra/.env.production \
-  -f infra/docker-compose.server.yml \
-  ps
-
-docker compose \
-  --env-file infra/.env.production \
-  -f infra/docker-compose.server.yml \
-  logs -f --tail=200
-```
-
-## 재실행
-
-설정 변경 없이 컨테이너를 다시 올린다.
-
-```bash
-sh infra/scripts/restart.sh
-```
-
-코드가 변경됐다면 `deploy-server.sh`를 실행한다. 이 명령은 GHCR 이미지만 갱신하며 Kafka와 Redis를 재생성하지 않는다.
-
-## E2E 확인
-
-```bash
-sh infra/scripts/verify.sh https://seat-rush.example.com
-```
-
-추가로 다음 흐름을 브라우저에서 확인한다.
+GitHub Actions에서는 `main` 브랜치에 머지되면 다음 순서로 동작합니다.
 
 ```text
-회원가입 -> 로그인 -> 공연/회차 선택 -> 대기열
--> 좌석 선점 -> 예매 생성 -> Mock 결제 -> 예매 확정
-```
-
-## GitHub Actions 배포
-
-CI/CD는 GitHub-hosted Runner와 EC2 Self-hosted Runner를 분리한다.
-
-```text
-PR
--> GitHub-hosted Runner에서 백엔드·프론트엔드 검증
-
-main 머지
--> GitHub-hosted Runner에서 ARM64 이미지 빌드
--> GHCR 업로드
--> production 승인
--> EC2 Self-hosted Runner에서 이미지 교체
+테스트
+-> ARM64 이미지 빌드
+-> GHCR push
+-> EC2 self-hosted runner에서 deploy-server.sh 실행
+-> deploy-monitoring.sh 실행
 -> HTTPS 검증
 ```
 
-SSH 개인키를 GitHub에 저장하지 않으며 EC2의 22번 포트는 관리자 IP에만 허용한다. Runner 설치와 보호 설정은 [CI/CD 구성 문서](ci-cd.md)를 참고한다.
+## 모니터링
 
-## 장애 확인
+### 수집 대상
+
+| 대상 | 수집 방식 |
+| --- | --- |
+| Spring 서비스 | `/actuator/prometheus` |
+| JVM, HTTP | Micrometer |
+| DB Connection Pool | HikariCP Micrometer |
+| Redis | `redis_exporter` |
+| Kafka | `kafka-exporter` |
+| MySQL | `mysqld-exporter` |
+| CPU, 메모리, 디스크, 네트워크 | `node-exporter` |
+| 컨테이너 리소스 | cAdvisor |
+
+### 접속
+
+보안그룹을 열지 않고 SSH 터널로 접속합니다.
 
 ```bash
-docker compose \
-  --env-file infra/.env.production \
-  -f infra/docker-compose.server.yml \
-  logs ticket-service queue-service payment-service
+ssh -L 3000:127.0.0.1:3000 \
+    -L 9090:127.0.0.1:9090 \
+    -L 9093:127.0.0.1:9093 \
+    ec2-user@<EC2_PUBLIC_IP>
 ```
 
-MySQL, Redis와 Kafka 데이터는 인프라 Compose의 Docker named volume에 저장된다. 서버 Compose를 재배포하거나 종료해도 영향을 받지 않는다. 인프라 Compose에 `docker compose down -v`를 실행하면 운영 데이터까지 삭제되므로 사용하지 않는다.
+| 도구 | URL |
+| --- | --- |
+| Grafana | `http://localhost:3000` |
+| Prometheus | `http://localhost:9090` |
+| Alertmanager | `http://localhost:9093` |
 
-EC2 인스턴스를 삭제하기 전에는 MySQL을 백업한다.
+Grafana 기본 대시보드는 `Seat Rush Overview`입니다.
+
+### 기본 알림 규칙
+
+Prometheus alert rule로 다음 상태를 감지합니다.
+
+- 서비스 scrape 실패
+- HTTP 5xx 비율 증가
+- HTTP p95 지연 증가
+- JVM heap 사용률 85% 초과
+- HikariCP active connection 85% 초과
+- 호스트 CPU/메모리/디스크 사용률 증가
+- Redis/Kafka 장애
+
+현재 Alertmanager receiver는 기본 placeholder입니다. 실제 Slack, Discord, Email 연동이 필요하면 `infra/monitoring/alertmanager/alertmanager.yml`의 receiver를 교체합니다.
+
+## 로그 조회
+
+```bash
+sh infra/scripts/logs.sh
+sh infra/scripts/logs.sh ticket-service
+sh infra/scripts/logs.sh prometheus
+```
+
+Docker `json-file` 로그는 서비스별로 `max-size=10m`, `max-file=3` 설정을 사용합니다.
+
+## 백업과 복구
+
+EC2 중지 전 MySQL 데이터를 백업합니다.
 
 ```bash
 sh infra/scripts/backup-mysql.sh
 ```
 
-생성된 `infra/backups/mysql-*.sql.gz` 파일은 로컬 PC나 S3 등 EC2 외부에 보관한다.
+복구는 새 MySQL 컨테이너 기동 후 백업 SQL을 주입합니다.
 
-## 후속 개선
+```bash
+gunzip -c infra/backups/mysql-YYYYMMDD-HHMMSS.sql.gz | docker exec -i seat-rush-infra-mysql-1 mysql -uroot -p
+```
 
-- EC2 단일 장애 지점 제거
-- MySQL을 RDS로 이전
-- Redis를 ElastiCache로 이전
-- Kafka를 MSK 또는 별도 클러스터로 이전
-- ALB와 ECS 적용
-- CloudWatch 로그 및 메트릭 수집
-- AWS Secrets Manager 또는 SSM Parameter Store 적용
+## 배포 검증
 
-## 참고
+기본 HTTP 검증:
 
-- [EC2 Elastic IP](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html)
-- [Route 53에서 EC2로 트래픽 연결](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-to-ec2-instance.html)
+```bash
+sh infra/scripts/verify.sh https://<DOMAIN>
+```
+
+전체 예매 흐름 검증은 E2E 스크립트를 사용합니다.
+
+```powershell
+$env:E2E_ADMIN_ACCESS_TOKEN="관리자-accessToken"
+powershell -ExecutionPolicy Bypass -File .\e2e\verify-local.ps1 `
+  -GatewayUrl "https://<DOMAIN>"
+```
