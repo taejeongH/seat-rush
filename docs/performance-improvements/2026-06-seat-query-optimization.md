@@ -89,3 +89,13 @@ MySQL `EXPLAIN ANALYZE`에서 연습 좌석 2,500건 조회는 `idx_seat_layout_
 | JVM GC pause | 대량 엔티티·JSON 객체 생성으로 인한 GC 영향 여부 |
 
 측정 결과는 `collect-seat-query-metrics.ps1`로 k6 요약 파일과 같은 디렉터리에 저장합니다.
+
+### 기준선 분석 결과
+
+동일 조건 100명 실행에서 MySQL 실행 계획은 약 3.7ms였지만, `seat.query.repository`와 별개로
+`ContentCachingResponseWrapper`의 응답 복사 구간이 p95 최대 1.54초까지 관찰됐습니다. 해당 필터는
+응답 본문을 로그에 사용하지 않으므로, 다음 변경에서 응답 전체 버퍼링을 제거하고 실제 Servlet 응답 완료
+시간을 `seat_rush_response_duration_seconds{stage="servlet"}`으로 재측정합니다.
+
+HikariCP `pending` gauge는 15초 scrape 간격에서 일부 실행만 피크를 포착했습니다. 짧은 실행의
+순간 대기를 놓치지 않도록 Spring 애플리케이션 scrape 간격을 5초로 낮춰 다음 재측정부터 적용합니다.

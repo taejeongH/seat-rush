@@ -7,7 +7,9 @@ param(
 
     [string]$PrometheusUrl = 'http://127.0.0.1:9090',
 
-    [int]$WindowSeconds = 60
+    [int]$WindowSeconds = 60,
+
+    [Nullable[int]]$EndOffsetSeconds = $null
 )
 
 $summary = Get-Content -Raw -Encoding utf8 $SummaryPath | ConvertFrom-Json
@@ -15,7 +17,12 @@ if ($null -eq $summary.setup_data -or $null -eq $summary.setup_data.openAtMillis
     throw 'k6 summary에 setup_data.openAtMillis가 없어 측정 시간 창을 계산할 수 없습니다.'
 }
 
-$endTimeSeconds = [math]::Floor(([double]$summary.setup_data.openAtMillis / 1000) + $WindowSeconds)
+$openAtSeconds = [math]::Floor([double]$summary.setup_data.openAtMillis / 1000)
+$endTimeSeconds = if ($null -ne $EndOffsetSeconds) {
+    $openAtSeconds + $EndOffsetSeconds
+} else {
+    [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+}
 $window = "${WindowSeconds}s"
 
 # k6가 기록한 티켓 오픈 시각을 기준으로 같은 Prometheus 시간 창을 조회합니다.
@@ -59,6 +66,7 @@ $output = [pscustomobject]@{
     openAtMillis = $summary.setup_data.openAtMillis
     windowSeconds = $WindowSeconds
     endTimeSeconds = $endTimeSeconds
+    endOffsetSeconds = $EndOffsetSeconds
     results = $results
 }
 

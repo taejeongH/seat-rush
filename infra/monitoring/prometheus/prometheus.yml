@@ -18,6 +18,8 @@ scrape_configs:
           - prometheus:9090
 
   - job_name: spring-applications
+    # 짧은 k6 실행에서도 HikariCP 및 JVM 순간 피크를 수집합니다.
+    scrape_interval: 5s
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
