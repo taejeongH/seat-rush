@@ -3,7 +3,7 @@ package com.seatrush.ticketservice.common.response.status;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
-    // COMMON
+    // 공통
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "COMMON001", "잘못된 입력값입니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON002", "서버 내부 에러가 발생했습니다."),
     ENTITY_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMON003", "존재하지 않는 리소스입니다."),
@@ -11,29 +11,29 @@ public enum ErrorCode {
     DUPLICATE_RESOURCE(HttpStatus.CONFLICT, "COMMON005", "이미 존재하는 리소스입니다."),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "COMMON006", "잘못된 요청입니다."),
 
-    // CONCERT & SCHEDULE
+    // 공연 및 회차
     CONCERT_NOT_FOUND(HttpStatus.NOT_FOUND, "CONCERT001", "공연을 찾을 수 없습니다."),
     SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "SCHEDULE001", "회차를 찾을 수 없습니다."),
     INVALID_SCHEDULE_PERIOD(HttpStatus.BAD_REQUEST, "SCHEDULE002", "회차 시간 설정이 올바르지 않습니다."),
     CANCELED_SCHEDULE(HttpStatus.CONFLICT, "SCHEDULE003", "취소된 회차는 변경할 수 없습니다."),
     SCHEDULE_UPDATE_CONFLICT(HttpStatus.CONFLICT, "SCHEDULE004", "회차가 다른 요청에 의해 변경되었습니다."),
 
-    // AUTH
+    // 인증
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "AUTH001", "이미 사용 중인 이메일입니다."),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH002", "이메일 또는 비밀번호가 올바르지 않습니다."),
     AUTHENTICATION_REQUIRED(HttpStatus.UNAUTHORIZED, "AUTH003", "인증이 필요합니다."),
     INVALID_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH004", "유효하지 않은 accessToken입니다."),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "AUTH005", "접근 권한이 없습니다."),
 
-    // USER
+    // 사용자
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER001", "사용자를 찾을 수 없습니다."),
 
-    // ENTRY_TOKEN
+    // 입장 토큰
     INVALID_ENTRY_TOKEN(HttpStatus.UNAUTHORIZED, "ENTRY_TOKEN001", "유효하지 않거나 만료된 entryToken입니다."),
     ENTRY_TOKEN_USER_MISMATCH(HttpStatus.FORBIDDEN, "ENTRY_TOKEN002", "entryToken의 사용자 정보가 일치하지 않습니다."),
     ENTRY_TOKEN_SCHEDULE_MISMATCH(HttpStatus.FORBIDDEN, "ENTRY_TOKEN003", "entryToken의 회차 정보가 일치하지 않습니다."),
 
-    // SEAT
+    // 좌석
     SEAT_SECTION_NOT_FOUND(HttpStatus.NOT_FOUND, "SEAT001", "좌석 구역을 찾을 수 없습니다."),
     SEAT_NOT_FOUND(HttpStatus.NOT_FOUND, "SEAT002", "좌석을 찾을 수 없습니다."),
     SEAT_NOT_AVAILABLE(HttpStatus.CONFLICT, "SEAT003", "선택한 좌석 중 이미 선점되었거나 예매된 좌석이 있습니다."),
@@ -42,7 +42,7 @@ public enum ErrorCode {
     SEAT_HOLD_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "SEAT006", "한 번에 선점할 수 있는 좌석 수를 초과했습니다."),
     SEAT_LAYOUT_NOT_FOUND(HttpStatus.NOT_FOUND, "SEAT007", "좌석 배치 정보를 찾을 수 없습니다."),
 
-    // RESERVATION
+    // 예매
     RESERVATION_NOT_FOUND(HttpStatus.NOT_FOUND, "RESERVATION001", "예매를 찾을 수 없습니다."),
     RESERVATION_ALREADY_EXISTS(HttpStatus.CONFLICT, "RESERVATION002", "해당 좌석 선점으로 생성된 예매가 이미 존재합니다."),
     INVALID_RESERVATION_STATE(HttpStatus.CONFLICT, "RESERVATION003", "현재 예매 상태에서는 요청을 처리할 수 없습니다."),

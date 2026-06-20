@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Stores seat hold state and hold metadata in Redis.
+ * Redis에 좌석 임시 선점 상태와 선점 메타데이터를 저장하고 조회합니다.
  */
 @Repository
 public class SeatHoldRedisRepository {
@@ -45,7 +45,7 @@ public class SeatHoldRedisRepository {
 
 
     /**
-     * Atomically holds all requested seats only if every seat is available.
+     * 요청한 모든 좌석이 사용 가능한 경우에만 원자적으로 선점합니다.
      */
     @SuppressWarnings("unchecked")
     public SeatHoldResult hold(SeatHold hold, long ttlMillis) {
@@ -86,14 +86,14 @@ public class SeatHoldRedisRepository {
     }
 
     /**
-     * Finds a production hold by id.
+     * 실제 예매 영역에서 holdId로 좌석 선점 정보를 조회합니다.
      */
     public SeatHold findById(String holdId) {
         return findById(holdId, null);
     }
 
     /**
-     * Finds a hold by id within the optional practice namespace.
+     * 연습 세션 영역을 선택적으로 지정해 holdId로 좌석 선점 정보를 조회합니다.
      */
     public SeatHold findById(String holdId, String practiceSessionId) {
         Map<Object, Object> values = redisTemplate.opsForHash()
@@ -114,7 +114,7 @@ public class SeatHoldRedisRepository {
     }
 
     /**
-     * Extends a hold until the reservation payment deadline.
+     * 예매 결제 만료 시각까지 좌석 선점의 유효 시간을 연장합니다.
      */
     public boolean extendForReservation(
             SeatHold hold,
@@ -148,7 +148,7 @@ public class SeatHoldRedisRepository {
     }
 
     /**
-     * Releases a hold and every seat key owned by that hold.
+     * 해당 선점과 선점에 속한 모든 좌석 키를 함께 해제합니다.
      */
     public boolean release(SeatHold hold) {
         List<String> keys = hold.seatIds().stream()
@@ -169,14 +169,14 @@ public class SeatHoldRedisRepository {
     }
 
     /**
-     * Checks held seats in production namespace.
+     * 실제 예매 영역에서 여러 좌석의 선점 여부를 일괄 조회합니다.
      */
     public Map<Long, Boolean> findHeldSeats(Long scheduleId, List<Long> seatIds) {
         return findHeldSeats(scheduleId, seatIds, null);
     }
 
     /**
-     * Checks held seats in the optional practice namespace.
+     * 연습 세션 영역을 선택적으로 지정해 여러 좌석의 선점 여부를 일괄 조회합니다.
      */
     public Map<Long, Boolean> findHeldSeats(
             Long scheduleId,
