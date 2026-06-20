@@ -54,9 +54,12 @@ management:
       percentiles-histogram:
         http.server.requests: true
         seat.rush.business.duration: true
+        seat.rush.response.duration: true
+        seat.rush.response.bytes: true
       percentiles:
         http.server.requests: 0.9,0.95,0.99
         seat.rush.business.duration: 0.9,0.95,0.99
+        seat.rush.response.duration: 0.9,0.95,0.99
 
 # ------------------------------------------------------------------
 # JWT 설정 (로그인 인증 및 Access Token 발급)

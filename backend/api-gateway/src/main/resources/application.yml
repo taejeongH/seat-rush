@@ -60,9 +60,11 @@ management:
       percentiles-histogram:
         http.server.requests: true
         seat.rush.business.duration: true
+        seat.rush.gateway.duration: true
       percentiles:
         http.server.requests: 0.9,0.95,0.99
         seat.rush.business.duration: 0.9,0.95,0.99
+        seat.rush.gateway.duration: 0.9,0.95,0.99
 
 jwt:
   issuer: seat-rush-ticket-service
