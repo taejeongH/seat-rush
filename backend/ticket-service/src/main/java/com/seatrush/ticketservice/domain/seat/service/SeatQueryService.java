@@ -94,7 +94,7 @@ public class SeatQueryService {
             validateTokenSchedule(scheduleId, claims);
 
             List<Seat> seats = businessMetrics.record(
-                    "seat.query.static",
+                    "seat.query.repository",
                     "real",
                     () -> seatRepository.findAllBySectionIdAndSectionScheduleIdOrderByRowNameAscSeatNumberAsc(
                             sectionId,
@@ -154,7 +154,7 @@ public class SeatQueryService {
             layoutQueryService.validatePracticeToken(seatLayoutId, practiceSessionId, claims);
 
             List<SeatLayoutSeat> seats = businessMetrics.record(
-                    "seat.query.static",
+                    "seat.query.repository",
                     "practice",
                     () -> layoutQueryService.getLayoutSeats(sectionId, seatLayoutId)
             );
