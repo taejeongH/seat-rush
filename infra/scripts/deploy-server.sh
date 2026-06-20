@@ -35,6 +35,12 @@ docker compose \
   -f "$COMPOSE_FILE" \
   up -d --remove-orphans reverse-proxy certbot
 
+# Nginx가 새 Docker DNS 설정과 교체된 Gateway/Frontend 컨테이너를 다시 인식하도록 재기동합니다.
+docker compose \
+  --env-file "$ENV_FILE" \
+  -f "$COMPOSE_FILE" \
+  restart reverse-proxy
+
 docker compose \
   --env-file "$ENV_FILE" \
   -f "$COMPOSE_FILE" \

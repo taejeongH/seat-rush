@@ -32,4 +32,8 @@ compose up -d --remove-orphans \
 sh "$ROOT_DIR/infra/scripts/initialize-https.sh"
 
 compose up -d --remove-orphans reverse-proxy certbot
+
+# 로컬 빌드 배포도 운영 배포와 동일하게 Nginx upstream을 다시 연결합니다.
+compose restart reverse-proxy
+
 compose ps
