@@ -11,6 +11,12 @@ public interface SeatRepository extends JpaRepository<Seat, Long> {
     @EntityGraph(attributePaths = "section")
     List<Seat> findAllBySectionIdOrderByRowNameAscSeatNumberAsc(Long sectionId);
 
+    @EntityGraph(attributePaths = "section")
+    List<Seat> findAllBySectionIdAndSectionScheduleIdOrderByRowNameAscSeatNumberAsc(
+            Long sectionId,
+            Long scheduleId
+    );
+
     @EntityGraph(attributePaths = {"section", "section.schedule"})
     List<Seat> findAllByIdIn(List<Long> seatIds);
 }
