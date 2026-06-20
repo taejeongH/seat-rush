@@ -2,11 +2,14 @@ package com.seatrush.ticketservice.domain.practice.reservation.repository;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 연습 모드(Practice Mode) 전용 데이터(가상 예매 정보, 가상 결제 상태, 시퀀스 등)를
@@ -33,6 +36,7 @@ public class PracticeReservationRedisRepository {
     // 특정 세션의 모든 키 조회를 위한 와일드카드 패턴 포맷: practice:{sessionId}:*
     private static final String ALL_KEYS_PATTERN_FORMAT =
             "practice:%s:*";
+    private static final int DELETE_BATCH_SIZE = 500;
 
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
@@ -111,14 +115,31 @@ public class PracticeReservationRedisRepository {
     }
 
     /**
-     * 연습 세션 종료 또는 리셋 시, 해당 세션에 종속되어 생성된 모든 키들을 Redis 패턴 조회를 통해 일괄 삭제합니다.
+     * 연습 세션 종료 또는 리셋 시, 해당 세션에 종속된 키를 SCAN으로 순차 조회해 일괄 삭제합니다.
+     *
+     * KEYS 명령은 전체 키 공간을 한 번에 순회해 Redis를 블로킹할 수 있으므로 사용하지 않습니다.
      *
      * @param practiceSessionId 삭제할 대상 고유 연습 세션 ID
      */
     public void deleteSession(String practiceSessionId) {
-        Set<String> keys = redisTemplate.keys(ALL_KEYS_PATTERN_FORMAT.formatted(practiceSessionId));
-        if (keys != null && !keys.isEmpty()) {
-            redisTemplate.delete(keys);
+        ScanOptions options = ScanOptions.scanOptions()
+                .match(ALL_KEYS_PATTERN_FORMAT.formatted(practiceSessionId))
+                .count(DELETE_BATCH_SIZE)
+                .build();
+
+        try (Cursor<String> cursor = redisTemplate.scan(options)) {
+            List<String> keys = new ArrayList<>(DELETE_BATCH_SIZE);
+            while (cursor.hasNext()) {
+                keys.add(cursor.next());
+                if (keys.size() == DELETE_BATCH_SIZE) {
+                    redisTemplate.delete(keys);
+                    keys.clear();
+                }
+            }
+
+            if (!keys.isEmpty()) {
+                redisTemplate.delete(keys);
+            }
         }
     }
 

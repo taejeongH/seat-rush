@@ -3,6 +3,7 @@ package com.seatrush.ticketservice.domain.seat.service;
 import com.seatrush.ticketservice.common.entrytoken.EntryTokenClaims;
 import com.seatrush.ticketservice.common.entrytoken.EntryTokenValidator;
 import com.seatrush.ticketservice.common.exception.CustomException;
+import com.seatrush.ticketservice.common.metrics.BusinessMetrics;
 import com.seatrush.ticketservice.common.response.status.ErrorCode;
 import com.seatrush.ticketservice.domain.concert.service.ConcertQueryService;
 import com.seatrush.ticketservice.domain.seat.dto.response.SeatResponseDto;
@@ -36,6 +37,7 @@ public class SeatQueryService {
     private final SeatHoldService seatHoldService;
     private final SeatLayoutQueryService layoutQueryService;
     private final EntryTokenValidator entryTokenValidator;
+    private final BusinessMetrics businessMetrics;
 
     public SeatQueryService(
             ConcertQueryService concertQueryService,
@@ -43,7 +45,8 @@ public class SeatQueryService {
             SeatRepository seatRepository,
             SeatHoldService seatHoldService,
             SeatLayoutQueryService layoutQueryService,
-            EntryTokenValidator entryTokenValidator
+            EntryTokenValidator entryTokenValidator,
+            BusinessMetrics businessMetrics
     ) {
         this.concertQueryService = concertQueryService;
         this.sectionRepository = sectionRepository;
@@ -51,6 +54,7 @@ public class SeatQueryService {
         this.seatHoldService = seatHoldService;
         this.layoutQueryService = layoutQueryService;
         this.entryTokenValidator = entryTokenValidator;
+        this.businessMetrics = businessMetrics;
     }
 
     /**
@@ -86,30 +90,39 @@ public class SeatQueryService {
             Long sectionId,
             EntryTokenClaims claims
     ) {
-        // 1. 회차 검증 및 대기열 토큰 적격 확인
-        validateEntry(scheduleId, claims);
-        if (!sectionRepository.existsByIdAndScheduleId(sectionId, scheduleId)) {
-            throw new CustomException(ErrorCode.SEAT_SECTION_NOT_FOUND);
-        }
+        return businessMetrics.record("seat.query", "real", () -> {
+            validateTokenSchedule(scheduleId, claims);
 
-        // 2. 구역에 포함된 전체 좌석 조회
-        List<Seat> seats = seatRepository.findAllBySectionIdOrderByRowNameAscSeatNumberAsc(sectionId);
-        List<Long> seatIds = seats.stream().map(Seat::getId).toList();
-        
-        // 3. Redis 내 실시간 선점 좌석 매핑 정보 일괄 로드
-        Map<Long, Boolean> heldSeats = seatHoldService.findHeldSeats(
-                scheduleId,
-                seatIds,
-                claims.practiceSessionId()
-        );
+            List<Seat> seats = businessMetrics.record(
+                    "seat.query.static",
+                    "real",
+                    () -> seatRepository.findAllBySectionIdAndSectionScheduleIdOrderByRowNameAscSeatNumberAsc(
+                            sectionId,
+                            scheduleId
+                    )
+            );
+            if (seats.isEmpty()) {
+                throw new CustomException(ErrorCode.SEAT_SECTION_NOT_FOUND);
+            }
 
-        // 4. DB 좌석 엔티티 정보와 Redis 선점 데이터 취합 후 Dto 생성
-        return seats.stream()
-                .map(seat -> SeatResponseDto.from(
-                        seat,
-                        Boolean.TRUE.equals(heldSeats.get(seat.getId()))
-                ))
-                .toList();
+            List<Long> seatIds = seats.stream().map(Seat::getId).toList();
+            Map<Long, Boolean> heldSeats = businessMetrics.record(
+                    "seat.query.hold.read",
+                    "real",
+                    () -> seatHoldService.findHeldSeats(scheduleId, seatIds, null)
+            );
+
+            return businessMetrics.record(
+                    "seat.query.mapping",
+                    "real",
+                    () -> seats.stream()
+                            .map(seat -> SeatResponseDto.from(
+                                    seat,
+                                    Boolean.TRUE.equals(heldSeats.get(seat.getId()))
+                            ))
+                            .toList()
+            );
+        });
     }
 
     /**
@@ -117,6 +130,13 @@ public class SeatQueryService {
      */
     private void validateEntry(Long scheduleId, EntryTokenClaims claims) {
         concertQueryService.validateScheduleExists(scheduleId);
+        validateTokenSchedule(scheduleId, claims);
+    }
+
+    /**
+     * 대기열 진입 토큰이 요청한 회차에 대해 발급되었는지 검증합니다.
+     */
+    private void validateTokenSchedule(Long scheduleId, EntryTokenClaims claims) {
         entryTokenValidator.validateSchedule(claims, scheduleId);
     }
 
@@ -130,30 +150,36 @@ public class SeatQueryService {
             String practiceSessionId,
             EntryTokenClaims claims
     ) {
-        // 1. 연습 세션 토큰 유효성 검증
-        layoutQueryService.validatePracticeEntry(seatLayoutId, practiceSessionId, claims);
-        if (!layoutQueryService.existsSectionInLayout(sectionId, seatLayoutId)) {
-            throw new CustomException(ErrorCode.SEAT_SECTION_NOT_FOUND);
-        }
+        return businessMetrics.record("seat.query", "practice", () -> {
+            layoutQueryService.validatePracticeToken(seatLayoutId, practiceSessionId, claims);
 
-        // 2. 해당 구역의 기본 좌석 템플릿 정보 조회
-        List<SeatLayoutSeat> seats = layoutQueryService.getLayoutSeatsBySection(sectionId);
-        List<Long> seatIds = seats.stream().map(SeatLayoutSeat::getId).toList();
-        
-        // 3. Redis에 선점 중인 좌석 정보를 일괄 조회 (멀티 캐시 쿼리)
-        Map<Long, Boolean> heldSeats = seatHoldService.findHeldSeats(
-                seatLayoutId,
-                seatIds,
-                practiceSessionId
-        );
+            List<SeatLayoutSeat> seats = businessMetrics.record(
+                    "seat.query.static",
+                    "practice",
+                    () -> layoutQueryService.getLayoutSeats(sectionId, seatLayoutId)
+            );
+            if (seats.isEmpty()) {
+                throw new CustomException(ErrorCode.SEAT_SECTION_NOT_FOUND);
+            }
 
-        // 4. 좌석 템플릿과 Redis 선점 상태를 오버레이하여 DTO 구성
-        return seats.stream()
-                .map(seat -> SeatLayoutSeatResponseDto.from(
-                        seat,
-                        Boolean.TRUE.equals(heldSeats.get(seat.getId()))
-                ))
-                .toList();
+            List<Long> seatIds = seats.stream().map(SeatLayoutSeat::getId).toList();
+            Map<Long, Boolean> heldSeats = businessMetrics.record(
+                    "seat.query.hold.read",
+                    "practice",
+                    () -> seatHoldService.findHeldSeats(seatLayoutId, seatIds, practiceSessionId)
+            );
+
+            return businessMetrics.record(
+                    "seat.query.mapping",
+                    "practice",
+                    () -> seats.stream()
+                            .map(seat -> SeatLayoutSeatResponseDto.from(
+                                    seat,
+                                    Boolean.TRUE.equals(heldSeats.get(seat.getId()))
+                            ))
+                            .toList()
+            );
+        });
     }
 }
 

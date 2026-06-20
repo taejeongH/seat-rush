@@ -72,17 +72,15 @@ public class SeatLayoutQueryService {
     }
 
     /**
-     * 특정 구역에 속한 개별 좌석들의 전체 목록을 조회합니다.
+     * 좌석 배치에 속한 특정 구역의 좌석을 조회합니다.
+     *
+     * sectionId와 seatLayoutId를 하나의 조회 조건으로 사용해 별도의 구역 존재 확인 쿼리를 줄입니다.
      */
-    public List<SeatLayoutSeat> getLayoutSeatsBySection(Long sectionId) {
-        return seatRepository.findAllBySectionIdOrderBySortOrderAsc(sectionId);
-    }
-
-    /**
-     * 구역이 특정 레이아웃 내에 존재하는지 검증합니다.
-     */
-    public boolean existsSectionInLayout(Long sectionId, Long seatLayoutId) {
-        return sectionRepository.existsByIdAndLayoutId(sectionId, seatLayoutId);
+    public List<SeatLayoutSeat> getLayoutSeats(Long sectionId, Long seatLayoutId) {
+        return seatRepository.findAllBySectionIdAndSectionLayoutIdOrderBySortOrderAsc(
+                sectionId,
+                seatLayoutId
+        );
     }
 
     /**
@@ -119,6 +117,20 @@ public class SeatLayoutQueryService {
         if (!layoutRepository.existsById(seatLayoutId)) {
             throw new CustomException(ErrorCode.SEAT_LAYOUT_NOT_FOUND);
         }
+        validatePracticeToken(seatLayoutId, practiceSessionId, claims);
+    }
+
+    /**
+     * 연습 세션 식별자와 대기열 진입 토큰의 좌석 배치 정보를 검증합니다.
+     *
+     * 좌석 목록 조회에서는 조회 쿼리 자체가 좌석 배치와 구역의 소속을 확인하므로,
+     * 이 메서드는 DB 접근 없이 토큰과 세션 정보만 검증합니다.
+     */
+    public void validatePracticeToken(
+            Long seatLayoutId,
+            String practiceSessionId,
+            EntryTokenClaims claims
+    ) {
         if (!practiceSessionId.equals(claims.practiceSessionId())) {
             throw new CustomException(ErrorCode.INVALID_ENTRY_TOKEN);
         }
