@@ -28,6 +28,7 @@
 - [좌석 조회 응답 경로 기준선 100명](./2026-06-20-k6-seat-query-path-baseline-100-users/README.md)
 - [응답 버퍼링 제거 후 좌석 조회 사용자 100명](./2026-06-21-k6-response-buffer-removed-100-users/README.md)
 - [JPA Projection 적용 후 좌석 조회 사용자 100명](./2026-06-21-k6-projection-100-users/README.md)
+- [HikariCP 및 Redis hold 세부 계측 사용자 100명](./2026-06-21-k6-hikari-redis-metrics-100-users/README.md)
 
 ## 개선 문서
 
