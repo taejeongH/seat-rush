@@ -20,6 +20,12 @@ docker compose \
   -f "$COMPOSE_FILE" \
   up -d
 
+# Bind mount로 변경된 Prometheus 설정을 프로세스에 다시 로드합니다.
+docker compose \
+  --env-file "$ENV_FILE" \
+  -f "$COMPOSE_FILE" \
+  restart prometheus
+
 docker compose \
   --env-file "$ENV_FILE" \
   -f "$COMPOSE_FILE" \
