@@ -12,7 +12,7 @@
 3. 좌석 조회를 DB·Redis·DTO 변환·Servlet·Gateway 구간으로 나누어 계측했습니다.
 4. 모든 HTTP 응답을 버퍼링하던 `ContentCachingResponseWrapper`를 제거하고 재측정했습니다.
 5. JPA 엔티티 전체 로딩을 줄이기 위해 constructor projection을 구현했습니다.
-6. projection 변경을 배포한 뒤 같은 조건으로 다시 측정해 효과를 비교합니다.
+6. projection 변경을 배포한 뒤 같은 조건으로 재측정해 효과를 확인했습니다.
 
 ## 1차 부하 테스트 결과
 
@@ -124,15 +124,29 @@ MySQL `EXPLAIN ANALYZE`에서 2,500개 좌석 조회는 `idx_seat_layout_seats_s
 | 좌석 조회 p90/p95/p99 | Repository 처리 시간 감소가 전체 응답에 미치는 영향 확인 |
 | Ticket Servlet·Gateway p95 | Repository 외 구간이 병목으로 남는지 확인 |
 
-**현재 상태: 구현 완료, 미배포·미측정.** 이 문서에는 projection 효과를 아직 기록하지 않습니다.
+### 재측정 결과
+
+동일한 100명 시나리오에서 사전 부하 1회와 60초 안정화 후 3회 반복 측정했습니다.
+
+| 지표 | 응답 버퍼링 제거 후 중앙값 | Projection 적용 후 중앙값 | 변화 |
+| --- | ---: | ---: | ---: |
+| 좌석 조회 p95 | 2,151 ms | 1,652 ms | -499 ms (-23.2%) |
+| `seat.query.repository` p95 | 332 ms | 111 ms | -221 ms (-66.6%) |
+| `seat.query` p95 | 550 ms | 415 ms | -135 ms (-24.5%) |
+| Ticket Servlet p95 | 1,683 ms | 1,517 ms | -166 ms (-9.9%) |
+| API Gateway p95 | 2,144 ms | 1,668 ms | -476 ms (-22.2%) |
+
+projection은 Repository 처리 시간을 크게 줄였고, 좌석 조회 전체 p95도 감소했습니다.
+다만 HikariCP pending이 최대 80까지 관찰돼 DB 커넥션 대기와 Redis hold 조회가 다음 분석 대상입니다.
+
+상세 결과: [JPA Projection 적용 후 좌석 조회 사용자 100명](../load-test-results/2026-06-21-k6-projection-100-users/README.md)
 
 ## 다음 측정 절차
 
-1. projection 변경을 배포합니다.
-2. 100명 전체 흐름을 1회 실행하고 60초 대기합니다.
-3. 100명 시나리오를 3회 반복하고 p90/p95/p99 중앙값을 기록합니다.
-4. 응답 버퍼링 제거 결과와 같은 지표를 비교합니다.
-5. 의미 있는 개선과 오류율 안정성이 확인되면 500명, 1,000명으로 확장합니다.
+1. HikariCP pending이 발생한 시점의 DB 커넥션 사용량과 대기 원인을 확인합니다.
+2. Redis hold 조회 구조와 API Gateway·Ticket Servlet 구간을 추가 계측합니다.
+3. 병목 개선 후 100명 시나리오를 같은 절차로 다시 측정합니다.
+4. 개선 효과와 오류율 안정성이 확인되면 500명, 1,000명으로 확장합니다.
 
 ## 추가 검토 항목
 
@@ -143,3 +157,12 @@ MySQL `EXPLAIN ANALYZE`에서 2,500개 좌석 조회는 `idx_seat_layout_seats_s
 | 3 | 대기열 polling | 1,000명에서 나타난 연결 종료 원인을 Gateway·Queue Service·Redis 지표로 분석 |
 | 4 | Lua Script | hold·연장·해제 Script의 명령 수, 실행 시간, Redis CPU와 slowlog 확인 |
 | 5 | 예매 생성 | Redis hold 검증과 DB 트랜잭션 구간의 HikariCP active/pending 분석 |
+
+## 다음 측정을 위한 추가 계측
+
+| 대상 | 추가 지표 | 확인 목적 |
+| --- | --- | --- |
+| DB 커넥션 풀 | acquire 평균·최대, usage 평균, timeout 증가량 | Repository 지연이 SQL·엔티티 처리보다 커넥션 획득 대기에서 발생하는지 확인 |
+| 좌석 hold 조회 | 키 생성, Redis `MGET`, 결과 매핑 p95 | 2,500개 좌석 ID 기준 hold 조회의 애플리케이션 내부 비용 분리 |
+| Lettuce 클라이언트 | `MGET` 호출 수, 평균·최대 완료 시간 | Ticket Service에서 Seat Redis까지의 클라이언트 통신 지연 확인 |
+| Seat Redis 서버 | `MGET` 호출 수와 평균 처리 시간 | Redis 서버 처리 지연과 애플리케이션 측 지연을 구분 |

@@ -1,0 +1,154 @@
+﻿{
+    "summaryPath":  "docs/load-test-results/2026-06-21-k6-projection-100-users/runs/run-3/summary.json",
+    "practiceSessionId":  "0e304372-8554-4cc8-9117-4f4204446bc2",
+    "openAtMillis":  1782006462471,
+    "windowSeconds":  60,
+    "endTimeSeconds":  1782006507,
+    "endOffsetSeconds":  45,
+    "results":  [
+                    {
+                        "name":  "seatQueryP95",
+                        "query":  "histogram_quantile(0.95, sum by (le, operation) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",result=\"success\",operation=~\"seat\\\\.query.*\"}[60s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "operation":  "seat.query"
+                                                      },
+                                           "value":  [
+                                                         1782006507,
+                                                         "0.4898947063750001"
+                                                     ]
+                                       },
+                                       {
+                                           "metric":  {
+                                                          "operation":  "seat.query.hold.read"
+                                                      },
+                                           "value":  [
+                                                         1782006507,
+                                                         "0.4239043236875001"
+                                                     ]
+                                       },
+                                       {
+                                           "metric":  {
+                                                          "operation":  "seat.query.mapping"
+                                                      },
+                                           "value":  [
+                                                         1782006507,
+                                                         "0.006920600949999989"
+                                                     ]
+                                       },
+                                       {
+                                           "metric":  {
+                                                          "operation":  "seat.query.repository"
+                                                      },
+                                           "value":  [
+                                                         1782006507,
+                                                         "0.11128886547499992"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "ticketResponseP95",
+                        "query":  "histogram_quantile(0.95, sum by (le, stage) (increase(seat_rush_response_duration_seconds_bucket{mode=\"practice\",status=~\"2..\"}[60s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "stage":  "servlet"
+                                                      },
+                                           "value":  [
+                                                         1782006507,
+                                                         "1.5166603259874998"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "gatewayP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_gateway_duration_seconds_bucket{operation=\"seat.query\",mode=\"practice\",status=~\"2..\"}[60s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782006507,
+                                                         "1.6682766482166662"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "hikariActiveMax",
+                        "query":  "max_over_time(hikaricp_connections_active{application=\"ticket-service\"}[60s])",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "application":  "ticket-service",
+                                                          "instance":  "ticket-service:8081",
+                                                          "job":  "spring-applications",
+                                                          "pool":  "HikariPool-1",
+                                                          "service":  "ticket-service"
+                                                      },
+                                           "value":  [
+                                                         1782006507,
+                                                         "10"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "hikariPendingMax",
+                        "query":  "max_over_time(hikaricp_connections_pending{application=\"ticket-service\"}[60s])",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "application":  "ticket-service",
+                                                          "instance":  "ticket-service:8081",
+                                                          "job":  "spring-applications",
+                                                          "pool":  "HikariPool-1",
+                                                          "service":  "ticket-service"
+                                                      },
+                                           "value":  [
+                                                         1782006507,
+                                                         "80"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "hikariMax",
+                        "query":  "max_over_time(hikaricp_connections_max{application=\"ticket-service\"}[60s])",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "application":  "ticket-service",
+                                                          "instance":  "ticket-service:8081",
+                                                          "job":  "spring-applications",
+                                                          "pool":  "HikariPool-1",
+                                                          "service":  "ticket-service"
+                                                      },
+                                           "value":  [
+                                                         1782006507,
+                                                         "10"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "jvmGcPauseSeconds",
+                        "query":  "sum(increase(jvm_gc_pause_seconds_sum{application=\"ticket-service\"}[60s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782006507,
+                                                         "0.3493333333333335"
+                                                     ]
+                                       }
+                                   ]
+                    }
+                ]
+}

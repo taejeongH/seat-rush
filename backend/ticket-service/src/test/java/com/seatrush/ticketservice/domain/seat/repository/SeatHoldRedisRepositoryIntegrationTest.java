@@ -1,5 +1,7 @@
 package com.seatrush.ticketservice.domain.seat.repository;
 
+import com.seatrush.ticketservice.common.metrics.BusinessMetrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -48,7 +50,10 @@ class SeatHoldRedisRepositoryIntegrationTest {
         redisTemplate.setHashKeySerializer(serializer);
         redisTemplate.setHashValueSerializer(serializer);
         redisTemplate.afterPropertiesSet();
-        repository = new SeatHoldRedisRepository(redisTemplate);
+        repository = new SeatHoldRedisRepository(
+                redisTemplate,
+                new BusinessMetrics(new SimpleMeterRegistry())
+        );
     }
 
     @AfterEach
