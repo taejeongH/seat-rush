@@ -23,9 +23,16 @@ $endTimeSeconds = if ($null -ne $EndOffsetSeconds) {
 } else {
     [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 }
+
+# 종료 시각이 아직 오지 않았다면 해당 구간의 Prometheus 지표가 완성될 때까지 기다립니다.
+$currentTimeSeconds = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+if ($endTimeSeconds -gt $currentTimeSeconds) {
+    Start-Sleep -Seconds ($endTimeSeconds - $currentTimeSeconds + 1)
+}
+
 $window = "${WindowSeconds}s"
 
-# k6가 기록한 티켓 오픈 시각을 기준으로 같은 Prometheus 시간 창을 조회합니다.
+# k6가 기록한 티켓 오픈 시각을 기준으로 동일한 Prometheus 시간 창을 조회합니다.
 $queries = [ordered]@{
     'seatQueryP95' = "histogram_quantile(0.95, sum by (le, operation) (increase(seat_rush_business_duration_seconds_bucket{mode=`"practice`",result=`"success`",operation=~`"seat\\.query.*`"}[$window])))"
     'ticketResponseP95' = "histogram_quantile(0.95, sum by (le, stage) (increase(seat_rush_response_duration_seconds_bucket{mode=`"practice`",status=~`"2..`"}[$window])))"

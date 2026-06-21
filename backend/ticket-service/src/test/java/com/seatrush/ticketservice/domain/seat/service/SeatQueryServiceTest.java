@@ -5,14 +5,12 @@ import com.seatrush.ticketservice.common.entrytoken.EntryTokenValidator;
 import com.seatrush.ticketservice.common.metrics.BusinessMetrics;
 import com.seatrush.ticketservice.domain.concert.service.ConcertQueryService;
 import com.seatrush.ticketservice.domain.seat.dto.response.SeatResponseDto;
-import com.seatrush.ticketservice.domain.seat.entity.Seat;
-import com.seatrush.ticketservice.domain.seat.entity.SeatSection;
 import com.seatrush.ticketservice.domain.seat.entity.SeatStatus;
 import com.seatrush.ticketservice.domain.seat.repository.SeatRepository;
 import com.seatrush.ticketservice.domain.seat.repository.SeatSectionRepository;
-import com.seatrush.ticketservice.domain.seatlayout.entity.SeatLayoutSeat;
-import com.seatrush.ticketservice.domain.seatlayout.entity.SeatLayoutSection;
+import com.seatrush.ticketservice.domain.seat.repository.projection.SeatQueryProjection;
 import com.seatrush.ticketservice.domain.seatlayout.dto.response.SeatLayoutSeatResponseDto;
+import com.seatrush.ticketservice.domain.seatlayout.repository.projection.SeatLayoutSeatQueryProjection;
 import com.seatrush.ticketservice.domain.seatlayout.service.SeatLayoutQueryService;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,8 +64,8 @@ class SeatQueryServiceTest {
     @Test
     void getSeatsQueriesSeatsWithScheduleCondition() {
         EntryTokenClaims claims = realClaims();
-        Seat seat = realSeat(101L, 10L);
-        when(seatRepository.findAllBySectionIdAndSectionScheduleIdOrderByRowNameAscSeatNumberAsc(10L, 1L))
+        SeatQueryProjection seat = realSeat(101L);
+        when(seatRepository.findQueryProjectionsBySectionIdAndScheduleId(10L, 1L))
                 .thenReturn(List.of(seat));
         when(seatHoldService.findHeldSeats(1L, List.of(101L), null))
                 .thenReturn(Map.of(101L, false));
@@ -78,7 +76,7 @@ class SeatQueryServiceTest {
         assertThat(response.getFirst().seatId()).isEqualTo(101L);
         verify(entryTokenValidator).validateSchedule(claims, 1L);
         verify(seatRepository)
-                .findAllBySectionIdAndSectionScheduleIdOrderByRowNameAscSeatNumberAsc(10L, 1L);
+                .findQueryProjectionsBySectionIdAndScheduleId(10L, 1L);
         verify(sectionRepository, never()).existsByIdAndScheduleId(10L, 1L);
         verify(concertQueryService, never()).validateScheduleExists(1L);
     }
@@ -89,7 +87,7 @@ class SeatQueryServiceTest {
     @Test
     void getPracticeSeatsQueriesSeatsWithLayoutCondition() {
         EntryTokenClaims claims = practiceClaims();
-        SeatLayoutSeat seat = practiceSeat(201L, 20L);
+        SeatLayoutSeatQueryProjection seat = practiceSeat(201L);
         when(layoutQueryService.getLayoutSeats(20L, 1L)).thenReturn(List.of(seat));
         when(seatHoldService.findHeldSeats(1L, List.of(201L), "practice-1"))
                 .thenReturn(Map.of(201L, true));
@@ -122,26 +120,11 @@ class SeatQueryServiceTest {
         );
     }
 
-    private Seat realSeat(Long seatId, Long sectionId) {
-        SeatSection section = mock(SeatSection.class);
-        Seat seat = mock(Seat.class);
-        when(section.getId()).thenReturn(sectionId);
-        when(seat.getId()).thenReturn(seatId);
-        when(seat.getSection()).thenReturn(section);
-        when(seat.getRowName()).thenReturn("A");
-        when(seat.getSeatNumber()).thenReturn(1);
-        when(seat.getStatus()).thenReturn(SeatStatus.AVAILABLE);
-        return seat;
+    private SeatQueryProjection realSeat(Long seatId) {
+        return new SeatQueryProjection(seatId, "A", 1, SeatStatus.AVAILABLE);
     }
 
-    private SeatLayoutSeat practiceSeat(Long seatId, Long sectionId) {
-        SeatLayoutSection section = mock(SeatLayoutSection.class);
-        SeatLayoutSeat seat = mock(SeatLayoutSeat.class);
-        when(section.getId()).thenReturn(sectionId);
-        when(seat.getId()).thenReturn(seatId);
-        when(seat.getSection()).thenReturn(section);
-        when(seat.getRowName()).thenReturn("P1");
-        when(seat.getSeatNumber()).thenReturn(1);
-        return seat;
+    private SeatLayoutSeatQueryProjection practiceSeat(Long seatId) {
+        return new SeatLayoutSeatQueryProjection(seatId, "P1", 1);
     }
 }
