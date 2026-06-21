@@ -67,7 +67,7 @@ class SeatQueryServiceTest {
         SeatQueryProjection seat = realSeat(101L);
         when(seatRepository.findQueryProjectionsBySectionIdAndScheduleId(10L, 1L))
                 .thenReturn(List.of(seat));
-        when(seatHoldService.findHeldSeats(1L, List.of(101L), null))
+        when(seatHoldService.findHeldSeats(1L, 10L, List.of(101L), null))
                 .thenReturn(Map.of(101L, false));
 
         List<SeatResponseDto> response = service.getSeats(1L, 10L, claims);
@@ -89,7 +89,7 @@ class SeatQueryServiceTest {
         EntryTokenClaims claims = practiceClaims();
         SeatLayoutSeatQueryProjection seat = practiceSeat(201L);
         when(layoutQueryService.getLayoutSeats(20L, 1L)).thenReturn(List.of(seat));
-        when(seatHoldService.findHeldSeats(1L, List.of(201L), "practice-1"))
+        when(seatHoldService.findHeldSeats(1L, 20L, List.of(201L), "practice-1"))
                 .thenReturn(Map.of(201L, true));
 
         List<SeatLayoutSeatResponseDto> response = service.getPracticeSeats(

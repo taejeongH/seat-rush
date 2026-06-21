@@ -108,7 +108,7 @@ public class SeatQueryService {
             Map<Long, Boolean> heldSeats = businessMetrics.record(
                     "seat.query.hold.read",
                     "real",
-                    () -> seatHoldService.findHeldSeats(scheduleId, seatIds, null)
+                    () -> seatHoldService.findHeldSeats(scheduleId, sectionId, seatIds, null)
             );
 
             return businessMetrics.record(
@@ -166,7 +166,12 @@ public class SeatQueryService {
             Map<Long, Boolean> heldSeats = businessMetrics.record(
                     "seat.query.hold.read",
                     "practice",
-                    () -> seatHoldService.findHeldSeats(seatLayoutId, seatIds, practiceSessionId)
+                    () -> seatHoldService.findHeldSeats(
+                            seatLayoutId,
+                            sectionId,
+                            seatIds,
+                            practiceSessionId
+                    )
             );
 
             return businessMetrics.record(
