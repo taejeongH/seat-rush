@@ -1,0 +1,6 @@
+﻿baseUrl=https://54-116-230-157.sslip.io
+users=100
+countdownSeconds=5
+measurementWindowSeconds=30
+measurementEndOffsetSeconds=30
+exitCode=99
