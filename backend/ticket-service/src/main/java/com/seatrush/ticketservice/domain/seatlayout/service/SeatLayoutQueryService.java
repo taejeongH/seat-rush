@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 좌석 배치 관련 데이터를 DB 및 Redis 캐시로부터 조회하여 가공하는 비즈니스 서비스입니다.
@@ -90,7 +92,7 @@ public class SeatLayoutQueryService {
      * @param seatLayoutId 좌석 배치 ID
      * @param seatIds 검증 대상 좌석 ID 목록
      */
-    public void validateLayoutSeats(Long seatLayoutId, List<Long> seatIds) {
+    public Map<Long, Long> validateLayoutSeats(Long seatLayoutId, List<Long> seatIds) {
         List<SeatLayoutSeat> seats = seatRepository.findAllByIdIn(seatIds);
         if (seats.size() != seatIds.size()) {
             throw new CustomException(ErrorCode.SEAT_NOT_FOUND);
@@ -105,6 +107,10 @@ public class SeatLayoutQueryService {
         if (invalidSeat) {
             throw new CustomException(ErrorCode.SEAT_NOT_AVAILABLE);
         }
+        return seats.stream().collect(Collectors.toMap(
+                SeatLayoutSeat::getId,
+                seat -> seat.getSection().getId()
+        ));
     }
 
     /**

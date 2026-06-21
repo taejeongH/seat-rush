@@ -35,6 +35,9 @@ $window = "${WindowSeconds}s"
 # k6가 기록한 티켓 오픈 시각을 기준으로 동일한 Prometheus 시간 창을 조회합니다.
 $queries = [ordered]@{
     'seatQueryP95' = "histogram_quantile(0.95, sum by (le, operation) (increase(seat_rush_business_duration_seconds_bucket{mode=`"practice`",result=`"success`",operation=~`"seat\\.query.*`"}[$window])))"
+    'seatHoldReadP95' = "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=`"practice`",result=`"success`",operation=`"seat.query.hold.read`"}[$window])))"
+    'seatHoldIndexReadP95' = "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=`"practice`",result=`"success`",operation=`"seat.query.hold.redis.index`"}[$window])))"
+    'seatHoldMappingP95' = "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=`"practice`",result=`"success`",operation=`"seat.query.hold.mapping`"}[$window])))"
     'ticketResponseP95' = "histogram_quantile(0.95, sum by (le, stage) (increase(seat_rush_response_duration_seconds_bucket{mode=`"practice`",status=~`"2..`"}[$window])))"
     'gatewayP95' = "histogram_quantile(0.95, sum by (le) (increase(seat_rush_gateway_duration_seconds_bucket{operation=`"seat.query`",mode=`"practice`",status=~`"2..`"}[$window])))"
     'hikariActiveMax' = "max_over_time(hikaricp_connections_active{application=`"ticket-service`"}[$window])"
@@ -44,11 +47,11 @@ $queries = [ordered]@{
     'hikariAcquireMaxSeconds' = "max_over_time(hikaricp_connections_acquire_seconds_max{application=`"ticket-service`"}[$window])"
     'hikariUsageAverageSeconds' = "sum(increase(hikaricp_connections_usage_seconds_sum{application=`"ticket-service`"}[$window])) / sum(increase(hikaricp_connections_usage_seconds_count{application=`"ticket-service`"}[$window]))"
     'hikariTimeoutCount' = "sum(increase(hikaricp_connections_timeout_total{application=`"ticket-service`"}[$window]))"
-    'lettuceMgetAverageSeconds' = "sum(increase(lettuce_command_completion_seconds_sum{application=`"ticket-service`",command=`"MGET`"}[$window])) / sum(increase(lettuce_command_completion_seconds_count{application=`"ticket-service`",command=`"MGET`"}[$window]))"
-    'lettuceMgetMaxSeconds' = "max_over_time(lettuce_command_completion_seconds_max{application=`"ticket-service`",command=`"MGET`"}[$window])"
-    'lettuceMgetCount' = "sum(increase(lettuce_command_completion_seconds_count{application=`"ticket-service`",command=`"MGET`"}[$window]))"
-    'redisMgetAverageSeconds' = "sum(increase(redis_commands_duration_seconds_total{redis=`"seat`",cmd=`"mget`"}[$window])) / sum(increase(redis_commands_total{redis=`"seat`",cmd=`"mget`"}[$window]))"
-    'redisMgetCount' = "sum(increase(redis_commands_total{redis=`"seat`",cmd=`"mget`"}[$window]))"
+    'lettuceLuaAverageSeconds' = "sum(increase(lettuce_command_completion_seconds_sum{application=`"ticket-service`",command=~`"EVAL|EVALSHA`"}[$window])) / sum(increase(lettuce_command_completion_seconds_count{application=`"ticket-service`",command=~`"EVAL|EVALSHA`"}[$window]))"
+    'lettuceLuaMaxSeconds' = "max_over_time(lettuce_command_completion_seconds_max{application=`"ticket-service`",command=~`"EVAL|EVALSHA`"}[$window])"
+    'lettuceLuaCount' = "sum(increase(lettuce_command_completion_seconds_count{application=`"ticket-service`",command=~`"EVAL|EVALSHA`"}[$window]))"
+    'redisLuaAverageSeconds' = "sum(increase(redis_commands_duration_seconds_total{redis=`"seat`",cmd=~`"eval|evalsha`"}[$window])) / sum(increase(redis_commands_total{redis=`"seat`",cmd=~`"eval|evalsha`"}[$window]))"
+    'redisLuaCount' = "sum(increase(redis_commands_total{redis=`"seat`",cmd=~`"eval|evalsha`"}[$window]))"
     'jvmGcPauseSeconds' = "sum(increase(jvm_gc_pause_seconds_sum{application=`"ticket-service`"}[$window]))"
 }
 

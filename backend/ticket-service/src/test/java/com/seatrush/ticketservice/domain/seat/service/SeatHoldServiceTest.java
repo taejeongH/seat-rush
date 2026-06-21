@@ -84,6 +84,9 @@ class SeatHoldServiceTest {
                 ArgumentCaptor.forClass(com.seatrush.ticketservice.domain.seat.repository.SeatHold.class);
         verify(holdRedisRepository).hold(captor.capture(), anyLong());
         assertThat(captor.getValue().entryTokenId()).isEqualTo("jti-1");
+        assertThat(captor.getValue().seatSectionIds())
+                .containsEntry(101L, 10L)
+                .containsEntry(102L, 10L);
     }
 
     /**
@@ -138,6 +141,7 @@ class SeatHoldServiceTest {
         Seat seat = mock(Seat.class);
 
         when(schedule.getId()).thenReturn(scheduleId);
+        when(section.getId()).thenReturn(10L);
         when(section.getSchedule()).thenReturn(schedule);
         when(seat.getId()).thenReturn(seatId);
         when(seat.getSection()).thenReturn(section);

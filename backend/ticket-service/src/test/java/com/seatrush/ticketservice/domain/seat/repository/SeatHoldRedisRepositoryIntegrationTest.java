@@ -60,7 +60,8 @@ class SeatHoldRedisRepositoryIntegrationTest {
     void cleanUp() {
         redisTemplate.delete(List.of(
                 SeatHoldKey.seat(SCHEDULE_ID, FIRST_SEAT_ID),
-                SeatHoldKey.seat(SCHEDULE_ID, SECOND_SEAT_ID)
+                SeatHoldKey.seat(SCHEDULE_ID, SECOND_SEAT_ID),
+                SeatHoldKey.sectionIndex(SCHEDULE_ID, 1L, null)
         ));
         holdIds.stream()
                 .map(SeatHoldKey::hold)
@@ -153,6 +154,93 @@ class SeatHoldRedisRepositoryIntegrationTest {
                 .isFalse();
         assertThat(redisTemplate.getExpire(SeatHoldKey.seat(SCHEDULE_ID, FIRST_SEAT_ID)))
                 .isBetween(55L, 60L);
+        assertThat(redisTemplate.opsForZSet().score(
+                SeatHoldKey.sectionIndex(SCHEDULE_ID, 1L, null),
+                FIRST_SEAT_ID.toString()
+        )).isGreaterThan(Instant.now().plusSeconds(55).toEpochMilli() * 1.0);
+    }
+
+    /**
+     * 구역별 hold 인덱스는 현재 선점된 좌석만 반환하고 해제된 좌석은 즉시 제거합니다.
+     */
+    @Test
+    void returnOnlyHeldSeatsFromSectionIndexAndRemoveReleasedSeats() {
+        String holdId = "indexed-hold";
+        holdIds.add(holdId);
+        SeatHold hold = hold(holdId, List.of(FIRST_SEAT_ID));
+        assertThat(repository.hold(hold, 60_000).success()).isTrue();
+
+        assertThat(repository.findHeldSeats(
+                SCHEDULE_ID,
+                1L,
+                List.of(FIRST_SEAT_ID, SECOND_SEAT_ID),
+                null
+        )).containsEntry(FIRST_SEAT_ID, true)
+                .containsEntry(SECOND_SEAT_ID, false);
+
+        assertThat(repository.release(hold)).isTrue();
+        assertThat(repository.findHeldSeats(
+                SCHEDULE_ID,
+                1L,
+                List.of(FIRST_SEAT_ID, SECOND_SEAT_ID),
+                null
+        )).containsEntry(FIRST_SEAT_ID, false)
+                .containsEntry(SECOND_SEAT_ID, false);
+    }
+
+    /**
+     * 연습 세션의 hold 인덱스는 실제 예매 영역과 분리됩니다.
+     */
+    @Test
+    void isolatePracticeSectionIndexFromRealReservationIndex() {
+        String practiceSessionId = "practice-index-test";
+        SeatHold practiceHold = new SeatHold(
+                "practice-indexed-hold",
+                SCHEDULE_ID,
+                100L,
+                "entry-token-jti",
+                practiceSessionId,
+                List.of(FIRST_SEAT_ID),
+                java.util.Map.of(FIRST_SEAT_ID, 1L),
+                Instant.now().plusSeconds(60)
+        );
+
+        assertThat(repository.hold(practiceHold, 60_000).success()).isTrue();
+        assertThat(repository.findHeldSeats(
+                SCHEDULE_ID,
+                1L,
+                List.of(FIRST_SEAT_ID),
+                practiceSessionId
+        )).containsEntry(FIRST_SEAT_ID, true);
+        assertThat(repository.findHeldSeats(
+                SCHEDULE_ID,
+                1L,
+                List.of(FIRST_SEAT_ID),
+                null
+        )).containsEntry(FIRST_SEAT_ID, false);
+
+        assertThat(repository.release(practiceHold)).isTrue();
+    }
+
+    /**
+     * 좌석 TTL 만료 뒤 인덱스에 남은 항목은 조회 시 함께 정리합니다.
+     */
+    @Test
+    void removeExpiredSeatsFromSectionIndexWhenReading() {
+        String indexKey = SeatHoldKey.sectionIndex(SCHEDULE_ID, 1L, null);
+        redisTemplate.opsForZSet().add(
+                indexKey,
+                FIRST_SEAT_ID.toString(),
+                Instant.now().minusSeconds(1).toEpochMilli()
+        );
+
+        assertThat(repository.findHeldSeats(
+                SCHEDULE_ID,
+                1L,
+                List.of(FIRST_SEAT_ID),
+                null
+        )).containsEntry(FIRST_SEAT_ID, false);
+        assertThat(redisTemplate.hasKey(indexKey)).isFalse();
     }
 
     private SeatHold hold(String holdId, List<Long> seatIds) {
@@ -161,7 +249,12 @@ class SeatHoldRedisRepositoryIntegrationTest {
                 SCHEDULE_ID,
                 100L,
                 "entry-token-jti",
+                null,
                 seatIds,
+                seatIds.stream().collect(java.util.stream.Collectors.toMap(
+                        seatId -> seatId,
+                        seatId -> 1L
+                )),
                 Instant.now().plusSeconds(60)
         );
     }

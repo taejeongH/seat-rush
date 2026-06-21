@@ -80,11 +80,9 @@ public class SeatHoldService {
             entryTokenValidator.validateSchedule(claims, scheduleId);
             List<Long> seatIds = validateSeatIds(requestedSeatIds);
 
-            if (claims.practiceMode()) {
-                validateLayoutSeats(scheduleId, seatIds);
-            } else {
-                validateSeats(scheduleId, seatIds);
-            }
+            Map<Long, Long> seatSectionIds = claims.practiceMode()
+                    ? validateLayoutSeats(scheduleId, seatIds)
+                    : validateSeats(scheduleId, seatIds);
 
             Instant expiresAt = Instant.now().plus(properties.ttl());
             SeatHold hold = new SeatHold(
@@ -94,6 +92,7 @@ public class SeatHoldService {
                     claims.jti(),
                     claims.practiceSessionId(),
                     seatIds,
+                    seatSectionIds,
                     expiresAt
             );
 
@@ -196,10 +195,11 @@ public class SeatHoldService {
      */
     public Map<Long, Boolean> findHeldSeats(
             Long scheduleId,
+            Long sectionId,
             List<Long> seatIds,
             String practiceSessionId
     ) {
-        return holdRedisRepository.findHeldSeats(scheduleId, seatIds, practiceSessionId);
+        return holdRedisRepository.findHeldSeats(scheduleId, sectionId, seatIds, practiceSessionId);
     }
 
     /**
@@ -221,7 +221,7 @@ public class SeatHoldService {
     /**
      * 실제 공연 회차의 좌석들이 모두 사용 가능한지 DB 상에서 검증합니다.
      */
-    private void validateSeats(Long scheduleId, List<Long> seatIds) {
+    private Map<Long, Long> validateSeats(Long scheduleId, List<Long> seatIds) {
         List<Seat> seats = seatRepository.findAllByIdIn(seatIds);
         if (seats.size() != seatIds.size()) {
             throw new CustomException(ErrorCode.SEAT_NOT_FOUND);
@@ -234,6 +234,10 @@ public class SeatHoldService {
         if (invalidSeat) {
             throw new CustomException(ErrorCode.SEAT_NOT_AVAILABLE);
         }
+        return seats.stream().collect(java.util.stream.Collectors.toMap(
+                Seat::getId,
+                seat -> seat.getSection().getId()
+        ));
     }
 
     private SeatHold findHold(String holdId) {
@@ -243,8 +247,8 @@ public class SeatHoldService {
     /**
      * 연습 모드 전용 레이아웃 좌석들의 정합성을 검증합니다.
      */
-    private void validateLayoutSeats(Long seatLayoutId, List<Long> seatIds) {
-        layoutQueryService.validateLayoutSeats(seatLayoutId, seatIds);
+    private Map<Long, Long> validateLayoutSeats(Long seatLayoutId, List<Long> seatIds) {
+        return layoutQueryService.validateLayoutSeats(seatLayoutId, seatIds);
     }
 
     /**

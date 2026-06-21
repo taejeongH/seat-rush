@@ -11,8 +11,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Redis에 좌석 임시 선점 상태와 선점 메타데이터를 저장하고 조회합니다.
@@ -23,6 +25,7 @@ public class SeatHoldRedisRepository {
     private static final DefaultRedisScript<List> HOLD_SEATS_SCRIPT;
     private static final DefaultRedisScript<Long> RELEASE_HOLD_SCRIPT;
     private static final DefaultRedisScript<Long> EXTEND_HOLD_SCRIPT;
+    private static final DefaultRedisScript<List> FIND_HELD_SEATS_SCRIPT;
 
     static {
         HOLD_SEATS_SCRIPT = new DefaultRedisScript<>();
@@ -36,6 +39,10 @@ public class SeatHoldRedisRepository {
         EXTEND_HOLD_SCRIPT = new DefaultRedisScript<>();
         EXTEND_HOLD_SCRIPT.setLocation(new ClassPathResource("scripts/extend_hold.lua"));
         EXTEND_HOLD_SCRIPT.setResultType(Long.class);
+
+        FIND_HELD_SEATS_SCRIPT = new DefaultRedisScript<>();
+        FIND_HELD_SEATS_SCRIPT.setLocation(new ClassPathResource("scripts/find_held_seats.lua"));
+        FIND_HELD_SEATS_SCRIPT.setResultType(List.class);
     }
 
     private final RedisTemplate<String, String> redisTemplate;
@@ -55,14 +62,7 @@ public class SeatHoldRedisRepository {
      */
     @SuppressWarnings("unchecked")
     public SeatHoldResult hold(SeatHold hold, long ttlMillis) {
-        List<String> keys = hold.seatIds().stream()
-                .map(seatId -> SeatHoldKey.seat(
-                        hold.scheduleId(),
-                        seatId,
-                        hold.practiceSessionId()
-                ))
-                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
-        keys.add(SeatHoldKey.hold(hold.holdId(), hold.practiceSessionId()));
+        List<String> keys = holdKeys(hold);
 
         List<String> arguments = new ArrayList<>();
         arguments.add(hold.holdId());
@@ -71,8 +71,10 @@ public class SeatHoldRedisRepository {
         arguments.add(hold.entryTokenId());
         arguments.add(Long.toString(ttlMillis));
         arguments.add(joinSeatIds(hold.seatIds()));
+        arguments.add(joinSectionIds(hold));
         arguments.add(Long.toString(hold.expiresAt().toEpochMilli()));
         arguments.add(nullToBlank(hold.practiceSessionId()));
+        arguments.add(Integer.toString(hold.seatIds().size()));
         hold.seatIds().forEach(seatId -> arguments.add(seatId.toString()));
 
         List<Object> result = redisTemplate.execute(
@@ -115,6 +117,7 @@ public class SeatHoldRedisRepository {
                 values.get("entryTokenId").toString(),
                 blankToNull(values.get("practiceSessionId")),
                 parseSeatIds(values.get("seatIds").toString()),
+                parseSeatSectionIds(values.get("seatIds").toString(), values.get("sectionIds")),
                 Instant.ofEpochMilli(Long.parseLong(values.get("expiresAt").toString()))
         );
     }
@@ -127,24 +130,22 @@ public class SeatHoldRedisRepository {
             long ttlMillis,
             Instant expiresAt
     ) {
-        List<String> keys = hold.seatIds().stream()
-                .map(seatId -> SeatHoldKey.seat(
-                        hold.scheduleId(),
-                        seatId,
-                        hold.practiceSessionId()
-                ))
-                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
-        keys.add(SeatHoldKey.hold(hold.holdId(), hold.practiceSessionId()));
+        List<String> keys = holdKeys(hold);
+
+        List<String> arguments = new ArrayList<>();
+        arguments.add(hold.holdId());
+        arguments.add(hold.userId().toString());
+        arguments.add(hold.scheduleId().toString());
+        arguments.add(hold.entryTokenId());
+        arguments.add(Long.toString(ttlMillis));
+        arguments.add(Long.toString(expiresAt.toEpochMilli()));
+        arguments.add(Integer.toString(hold.seatIds().size()));
+        hold.seatIds().forEach(seatId -> arguments.add(seatId.toString()));
 
         Long result = redisTemplate.execute(
                 EXTEND_HOLD_SCRIPT,
                 keys,
-                hold.holdId(),
-                hold.userId().toString(),
-                hold.scheduleId().toString(),
-                hold.entryTokenId(),
-                Long.toString(ttlMillis),
-                Long.toString(expiresAt.toEpochMilli())
+                arguments.toArray()
         );
 
         if (result == null) {
@@ -157,19 +158,17 @@ public class SeatHoldRedisRepository {
      * 해당 선점과 선점에 속한 모든 좌석 키를 함께 해제합니다.
      */
     public boolean release(SeatHold hold) {
-        List<String> keys = hold.seatIds().stream()
-                .map(seatId -> SeatHoldKey.seat(
-                        hold.scheduleId(),
-                        seatId,
-                        hold.practiceSessionId()
-                ))
-                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
-        keys.add(SeatHoldKey.hold(hold.holdId(), hold.practiceSessionId()));
+        List<String> keys = holdKeys(hold);
+
+        List<String> arguments = new ArrayList<>();
+        arguments.add(hold.holdId());
+        arguments.add(Integer.toString(hold.seatIds().size()));
+        hold.seatIds().forEach(seatId -> arguments.add(seatId.toString()));
 
         Long deleted = redisTemplate.execute(
                 RELEASE_HOLD_SCRIPT,
                 keys,
-                hold.holdId()
+                arguments.toArray()
         );
         return deleted != null && deleted > 0;
     }
@@ -177,8 +176,8 @@ public class SeatHoldRedisRepository {
     /**
      * 실제 예매 영역에서 여러 좌석의 선점 여부를 일괄 조회합니다.
      */
-    public Map<Long, Boolean> findHeldSeats(Long scheduleId, List<Long> seatIds) {
-        return findHeldSeats(scheduleId, seatIds, null);
+    public Map<Long, Boolean> findHeldSeats(Long scheduleId, Long sectionId, List<Long> seatIds) {
+        return findHeldSeats(scheduleId, sectionId, seatIds, null);
     }
 
     /**
@@ -186,6 +185,7 @@ public class SeatHoldRedisRepository {
      */
     public Map<Long, Boolean> findHeldSeats(
             Long scheduleId,
+            Long sectionId,
             List<Long> seatIds,
             String practiceSessionId
     ) {
@@ -194,33 +194,55 @@ public class SeatHoldRedisRepository {
         }
 
         String mode = practiceSessionId == null ? "real" : "practice";
-        List<String> keys = businessMetrics.record(
-                "seat.query.hold.key.build",
+        String indexKey = SeatHoldKey.sectionIndex(scheduleId, sectionId, practiceSessionId);
+        List<Object> values = businessMetrics.record(
+                "seat.query.hold.redis.index",
                 mode,
-                () -> seatIds.stream()
-                        .map(seatId -> SeatHoldKey.seat(scheduleId, seatId, practiceSessionId))
-                        .toList()
+                () -> redisTemplate.execute(FIND_HELD_SEATS_SCRIPT, List.of(indexKey))
         );
-        List<String> values = businessMetrics.record(
-                "seat.query.hold.redis.mget",
-                mode,
-                () -> redisTemplate.opsForValue().multiGet(keys)
-        );
+        Set<Long> heldSeatIds = new HashSet<>();
+        if (values != null) {
+            values.forEach(value -> heldSeatIds.add(toLong(value)));
+        }
 
         return businessMetrics.record("seat.query.hold.mapping", mode, () -> {
             Map<Long, Boolean> result = new HashMap<>();
-            for (int index = 0; index < seatIds.size(); index++) {
-                result.put(
-                        seatIds.get(index),
-                        values != null && values.get(index) != null
-                );
-            }
+            seatIds.forEach(seatId -> result.put(seatId, heldSeatIds.contains(seatId)));
             return result;
         });
     }
 
+    private List<String> holdKeys(SeatHold hold) {
+        List<String> keys = hold.seatIds().stream()
+                .map(seatId -> SeatHoldKey.seat(
+                        hold.scheduleId(),
+                        seatId,
+                        hold.practiceSessionId()
+                ))
+                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+        keys.add(SeatHoldKey.hold(hold.holdId(), hold.practiceSessionId()));
+        if (hold.hasSeatSectionIds()) {
+            hold.seatIds().forEach(seatId -> keys.add(SeatHoldKey.sectionIndex(
+                    hold.scheduleId(),
+                    hold.seatSectionIds().get(seatId),
+                    hold.practiceSessionId()
+            )));
+        }
+        return keys;
+    }
+
     private String joinSeatIds(List<Long> seatIds) {
         return String.join(",", seatIds.stream().map(String::valueOf).toList());
+    }
+
+    private String joinSectionIds(SeatHold hold) {
+        if (!hold.hasSeatSectionIds()) {
+            return "";
+        }
+        return String.join(",", hold.seatIds().stream()
+                .map(hold.seatSectionIds()::get)
+                .map(String::valueOf)
+                .toList());
     }
 
     private List<Long> parseSeatIds(String value) {
@@ -230,6 +252,24 @@ public class SeatHoldRedisRepository {
         return Arrays.stream(value.split(","))
                 .map(Long::valueOf)
                 .toList();
+    }
+
+    private Map<Long, Long> parseSeatSectionIds(String seatIds, Object sectionIds) {
+        if (sectionIds == null || sectionIds.toString().isBlank()) {
+            return Map.of();
+        }
+
+        List<Long> parsedSeatIds = parseSeatIds(seatIds);
+        List<Long> parsedSectionIds = parseSeatIds(sectionIds.toString());
+        if (parsedSeatIds.size() != parsedSectionIds.size()) {
+            return Map.of();
+        }
+
+        Map<Long, Long> result = new HashMap<>();
+        for (int index = 0; index < parsedSeatIds.size(); index++) {
+            result.put(parsedSeatIds.get(index), parsedSectionIds.get(index));
+        }
+        return result;
     }
 
     private String nullToBlank(String value) {
