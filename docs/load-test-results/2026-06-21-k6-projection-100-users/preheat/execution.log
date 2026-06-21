@@ -1,0 +1,7 @@
+﻿baseUrl=https://54-116-230-157.sslip.io
+users=100
+countdownSeconds=5
+paymentSuccessPercent=100
+paymentFailurePercent=0
+maxSeatsPerUser=4
+exitCode=99
