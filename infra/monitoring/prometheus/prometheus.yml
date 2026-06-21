@@ -19,7 +19,8 @@ scrape_configs:
 
   - job_name: spring-applications
     # 짧은 k6 실행에서도 HikariCP 및 JVM 순간 피크를 수집합니다.
-    scrape_interval: 5s
+    scrape_interval: 1s
+    scrape_timeout: 900ms
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
