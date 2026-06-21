@@ -10,6 +10,7 @@ import com.seatrush.ticketservice.domain.seatlayout.entity.SeatLayoutSeat;
 import com.seatrush.ticketservice.domain.seatlayout.repository.SeatLayoutRepository;
 import com.seatrush.ticketservice.domain.seatlayout.repository.SeatLayoutSeatRepository;
 import com.seatrush.ticketservice.domain.seatlayout.repository.SeatLayoutSectionRepository;
+import com.seatrush.ticketservice.domain.seatlayout.repository.projection.SeatLayoutSeatQueryProjection;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -76,8 +77,8 @@ public class SeatLayoutQueryService {
      *
      * sectionId와 seatLayoutId를 하나의 조회 조건으로 사용해 별도의 구역 존재 확인 쿼리를 줄입니다.
      */
-    public List<SeatLayoutSeat> getLayoutSeats(Long sectionId, Long seatLayoutId) {
-        return seatRepository.findAllBySectionIdAndSectionLayoutIdOrderBySortOrderAsc(
+    public List<SeatLayoutSeatQueryProjection> getLayoutSeats(Long sectionId, Long seatLayoutId) {
+        return seatRepository.findQueryProjectionsBySectionIdAndLayoutId(
                 sectionId,
                 seatLayoutId
         );

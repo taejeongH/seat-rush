@@ -8,12 +8,11 @@ import com.seatrush.ticketservice.common.response.status.ErrorCode;
 import com.seatrush.ticketservice.domain.concert.service.ConcertQueryService;
 import com.seatrush.ticketservice.domain.seat.dto.response.SeatResponseDto;
 import com.seatrush.ticketservice.domain.seat.dto.response.SeatSectionResponseDto;
-import com.seatrush.ticketservice.domain.seat.entity.Seat;
-import com.seatrush.ticketservice.domain.seat.service.SeatHoldService;
 import com.seatrush.ticketservice.domain.seat.repository.SeatRepository;
 import com.seatrush.ticketservice.domain.seat.repository.SeatSectionRepository;
+import com.seatrush.ticketservice.domain.seat.repository.projection.SeatQueryProjection;
 import com.seatrush.ticketservice.domain.seatlayout.dto.response.SeatLayoutSeatResponseDto;
-import com.seatrush.ticketservice.domain.seatlayout.entity.SeatLayoutSeat;
+import com.seatrush.ticketservice.domain.seatlayout.repository.projection.SeatLayoutSeatQueryProjection;
 import com.seatrush.ticketservice.domain.seatlayout.service.SeatLayoutQueryService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -93,10 +92,10 @@ public class SeatQueryService {
         return businessMetrics.record("seat.query", "real", () -> {
             validateTokenSchedule(scheduleId, claims);
 
-            List<Seat> seats = businessMetrics.record(
+            List<SeatQueryProjection> seats = businessMetrics.record(
                     "seat.query.repository",
                     "real",
-                    () -> seatRepository.findAllBySectionIdAndSectionScheduleIdOrderByRowNameAscSeatNumberAsc(
+                    () -> seatRepository.findQueryProjectionsBySectionIdAndScheduleId(
                             sectionId,
                             scheduleId
                     )
@@ -105,7 +104,7 @@ public class SeatQueryService {
                 throw new CustomException(ErrorCode.SEAT_SECTION_NOT_FOUND);
             }
 
-            List<Long> seatIds = seats.stream().map(Seat::getId).toList();
+            List<Long> seatIds = seats.stream().map(SeatQueryProjection::seatId).toList();
             Map<Long, Boolean> heldSeats = businessMetrics.record(
                     "seat.query.hold.read",
                     "real",
@@ -118,7 +117,8 @@ public class SeatQueryService {
                     () -> seats.stream()
                             .map(seat -> SeatResponseDto.from(
                                     seat,
-                                    Boolean.TRUE.equals(heldSeats.get(seat.getId()))
+                                    sectionId,
+                                    Boolean.TRUE.equals(heldSeats.get(seat.seatId()))
                             ))
                             .toList()
             );
@@ -153,7 +153,7 @@ public class SeatQueryService {
         return businessMetrics.record("seat.query", "practice", () -> {
             layoutQueryService.validatePracticeToken(seatLayoutId, practiceSessionId, claims);
 
-            List<SeatLayoutSeat> seats = businessMetrics.record(
+            List<SeatLayoutSeatQueryProjection> seats = businessMetrics.record(
                     "seat.query.repository",
                     "practice",
                     () -> layoutQueryService.getLayoutSeats(sectionId, seatLayoutId)
@@ -162,7 +162,7 @@ public class SeatQueryService {
                 throw new CustomException(ErrorCode.SEAT_SECTION_NOT_FOUND);
             }
 
-            List<Long> seatIds = seats.stream().map(SeatLayoutSeat::getId).toList();
+            List<Long> seatIds = seats.stream().map(SeatLayoutSeatQueryProjection::seatId).toList();
             Map<Long, Boolean> heldSeats = businessMetrics.record(
                     "seat.query.hold.read",
                     "practice",
@@ -175,7 +175,8 @@ public class SeatQueryService {
                     () -> seats.stream()
                             .map(seat -> SeatLayoutSeatResponseDto.from(
                                     seat,
-                                    Boolean.TRUE.equals(heldSeats.get(seat.getId()))
+                                    sectionId,
+                                    Boolean.TRUE.equals(heldSeats.get(seat.seatId()))
                             ))
                             .toList()
             );

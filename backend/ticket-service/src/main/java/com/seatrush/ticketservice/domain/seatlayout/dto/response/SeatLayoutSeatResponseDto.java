@@ -1,7 +1,7 @@
 package com.seatrush.ticketservice.domain.seatlayout.dto.response;
 
 import com.seatrush.ticketservice.domain.seat.dto.response.SeatAvailability;
-import com.seatrush.ticketservice.domain.seatlayout.entity.SeatLayoutSeat;
+import com.seatrush.ticketservice.domain.seatlayout.repository.projection.SeatLayoutSeatQueryProjection;
 
 public record SeatLayoutSeatResponseDto(
         Long seatId,
@@ -11,12 +11,19 @@ public record SeatLayoutSeatResponseDto(
         SeatAvailability status
 ) {
 
-    public static SeatLayoutSeatResponseDto from(SeatLayoutSeat seat, boolean held) {
+    /**
+     * 연습 좌석 목록 projection과 요청 구역 ID를 응답 DTO로 변환합니다.
+     */
+    public static SeatLayoutSeatResponseDto from(
+            SeatLayoutSeatQueryProjection seat,
+            Long sectionId,
+            boolean held
+    ) {
         return new SeatLayoutSeatResponseDto(
-                seat.getId(),
-                seat.getSection().getId(),
-                seat.getRowName(),
-                seat.getSeatNumber(),
+                seat.seatId(),
+                sectionId,
+                seat.rowName(),
+                seat.seatNumber(),
                 held ? SeatAvailability.HELD : SeatAvailability.AVAILABLE
         );
     }
