@@ -1,5 +1,6 @@
 package com.seatrush.ticketservice.domain.seat.repository;
 
+import com.seatrush.ticketservice.common.metrics.BusinessMetrics;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -38,9 +39,14 @@ public class SeatHoldRedisRepository {
     }
 
     private final RedisTemplate<String, String> redisTemplate;
+    private final BusinessMetrics businessMetrics;
 
-    public SeatHoldRedisRepository(RedisTemplate<String, String> redisTemplate) {
+    public SeatHoldRedisRepository(
+            RedisTemplate<String, String> redisTemplate,
+            BusinessMetrics businessMetrics
+    ) {
         this.redisTemplate = redisTemplate;
+        this.businessMetrics = businessMetrics;
     }
 
 
@@ -187,19 +193,30 @@ public class SeatHoldRedisRepository {
             return Collections.emptyMap();
         }
 
-        List<String> keys = seatIds.stream()
-                .map(seatId -> SeatHoldKey.seat(scheduleId, seatId, practiceSessionId))
-                .toList();
-        List<String> values = redisTemplate.opsForValue().multiGet(keys);
+        String mode = practiceSessionId == null ? "real" : "practice";
+        List<String> keys = businessMetrics.record(
+                "seat.query.hold.key.build",
+                mode,
+                () -> seatIds.stream()
+                        .map(seatId -> SeatHoldKey.seat(scheduleId, seatId, practiceSessionId))
+                        .toList()
+        );
+        List<String> values = businessMetrics.record(
+                "seat.query.hold.redis.mget",
+                mode,
+                () -> redisTemplate.opsForValue().multiGet(keys)
+        );
 
-        Map<Long, Boolean> result = new HashMap<>();
-        for (int index = 0; index < seatIds.size(); index++) {
-            result.put(
-                    seatIds.get(index),
-                    values != null && values.get(index) != null
-            );
-        }
-        return result;
+        return businessMetrics.record("seat.query.hold.mapping", mode, () -> {
+            Map<Long, Boolean> result = new HashMap<>();
+            for (int index = 0; index < seatIds.size(); index++) {
+                result.put(
+                        seatIds.get(index),
+                        values != null && values.get(index) != null
+                );
+            }
+            return result;
+        });
     }
 
     private String joinSeatIds(List<Long> seatIds) {

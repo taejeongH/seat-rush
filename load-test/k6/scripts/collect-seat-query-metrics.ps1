@@ -40,6 +40,15 @@ $queries = [ordered]@{
     'hikariActiveMax' = "max_over_time(hikaricp_connections_active{application=`"ticket-service`"}[$window])"
     'hikariPendingMax' = "max_over_time(hikaricp_connections_pending{application=`"ticket-service`"}[$window])"
     'hikariMax' = "max_over_time(hikaricp_connections_max{application=`"ticket-service`"}[$window])"
+    'hikariAcquireAverageSeconds' = "sum(increase(hikaricp_connections_acquire_seconds_sum{application=`"ticket-service`"}[$window])) / sum(increase(hikaricp_connections_acquire_seconds_count{application=`"ticket-service`"}[$window]))"
+    'hikariAcquireMaxSeconds' = "max_over_time(hikaricp_connections_acquire_seconds_max{application=`"ticket-service`"}[$window])"
+    'hikariUsageAverageSeconds' = "sum(increase(hikaricp_connections_usage_seconds_sum{application=`"ticket-service`"}[$window])) / sum(increase(hikaricp_connections_usage_seconds_count{application=`"ticket-service`"}[$window]))"
+    'hikariTimeoutCount' = "sum(increase(hikaricp_connections_timeout_total{application=`"ticket-service`"}[$window]))"
+    'lettuceMgetAverageSeconds' = "sum(increase(lettuce_command_completion_seconds_sum{application=`"ticket-service`",command=`"MGET`"}[$window])) / sum(increase(lettuce_command_completion_seconds_count{application=`"ticket-service`",command=`"MGET`"}[$window]))"
+    'lettuceMgetMaxSeconds' = "max_over_time(lettuce_command_completion_seconds_max{application=`"ticket-service`",command=`"MGET`"}[$window])"
+    'lettuceMgetCount' = "sum(increase(lettuce_command_completion_seconds_count{application=`"ticket-service`",command=`"MGET`"}[$window]))"
+    'redisMgetAverageSeconds' = "sum(increase(redis_commands_duration_seconds_total{redis=`"seat`",cmd=`"mget`"}[$window])) / sum(increase(redis_commands_total{redis=`"seat`",cmd=`"mget`"}[$window]))"
+    'redisMgetCount' = "sum(increase(redis_commands_total{redis=`"seat`",cmd=`"mget`"}[$window]))"
     'jvmGcPauseSeconds' = "sum(increase(jvm_gc_pause_seconds_sum{application=`"ticket-service`"}[$window]))"
 }
 
