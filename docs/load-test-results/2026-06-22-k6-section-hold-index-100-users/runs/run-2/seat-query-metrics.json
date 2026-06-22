@@ -1,0 +1,377 @@
+﻿{
+    "summaryPath":  "docs\\load-test-results\\2026-06-22-k6-section-hold-index-100-users\\runs\\run-2\\summary.json",
+    "practiceSessionId":  "8a2f749d-4738-437d-8013-981eb651b9c7",
+    "openAtMillis":  1782088826461,
+    "windowSeconds":  30,
+    "endTimeSeconds":  1782088856,
+    "endOffsetSeconds":  30,
+    "results":  [
+                    {
+                        "name":  "seatQueryP95",
+                        "query":  "histogram_quantile(0.95, sum by (le, operation) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",result=\"success\",operation=~\"seat\\\\.query.*\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "operation":  "seat.query.hold.read"
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "0.31828775478571425"
+                                                     ]
+                                       },
+                                       {
+                                           "metric":  {
+                                                          "operation":  "seat.query.hold.redis.index"
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "0.3120562174374999"
+                                                     ]
+                                       },
+                                       {
+                                           "metric":  {
+                                                          "operation":  "seat.query.mapping"
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "0.003110773499999997"
+                                                     ]
+                                       },
+                                       {
+                                           "metric":  {
+                                                          "operation":  "seat.query.repository"
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "0.07717519344999989"
+                                                     ]
+                                       },
+                                       {
+                                           "metric":  {
+                                                          "operation":  "seat.query"
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "0.35612437129999985"
+                                                     ]
+                                       },
+                                       {
+                                           "metric":  {
+                                                          "operation":  "seat.query.hold.mapping"
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "0.0020796747499999984"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "seatHoldReadP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",result=\"success\",operation=\"seat.query.hold.read\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "0.31828775478571425"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "seatHoldIndexReadP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",result=\"success\",operation=\"seat.query.hold.redis.index\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "0.3120562174374999"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "seatHoldMappingP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",result=\"success\",operation=\"seat.query.hold.mapping\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "0.0020796747499999984"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "ticketResponseP95",
+                        "query":  "histogram_quantile(0.95, sum by (le, stage) (increase(seat_rush_response_duration_seconds_bucket{mode=\"practice\",status=~\"2..\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "stage":  "servlet"
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "1.0491352398"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "gatewayP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_gateway_duration_seconds_bucket{operation=\"seat.query\",mode=\"practice\",status=~\"2..\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "1.0424243532"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "hikariActiveMax",
+                        "query":  "max_over_time(hikaricp_connections_active{application=\"ticket-service\"}[30s])",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "application":  "ticket-service",
+                                                          "instance":  "ticket-service:8081",
+                                                          "job":  "spring-applications",
+                                                          "pool":  "HikariPool-1",
+                                                          "service":  "ticket-service"
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "10"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "hikariPendingMax",
+                        "query":  "max_over_time(hikaricp_connections_pending{application=\"ticket-service\"}[30s])",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "application":  "ticket-service",
+                                                          "instance":  "ticket-service:8081",
+                                                          "job":  "spring-applications",
+                                                          "pool":  "HikariPool-1",
+                                                          "service":  "ticket-service"
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "66"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "hikariMax",
+                        "query":  "max_over_time(hikaricp_connections_max{application=\"ticket-service\"}[30s])",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "application":  "ticket-service",
+                                                          "instance":  "ticket-service:8081",
+                                                          "job":  "spring-applications",
+                                                          "pool":  "HikariPool-1",
+                                                          "service":  "ticket-service"
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "10"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "hikariAcquireAverageSeconds",
+                        "query":  "sum(increase(hikaricp_connections_acquire_seconds_sum{application=\"ticket-service\"}[30s])) / sum(increase(hikaricp_connections_acquire_seconds_count{application=\"ticket-service\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "0.293627103685345"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "hikariAcquireMaxSeconds",
+                        "query":  "max_over_time(hikaricp_connections_acquire_seconds_max{application=\"ticket-service\"}[30s])",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "application":  "ticket-service",
+                                                          "instance":  "ticket-service:8081",
+                                                          "job":  "spring-applications",
+                                                          "pool":  "HikariPool-1",
+                                                          "service":  "ticket-service"
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "1.426347466"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "hikariUsageAverageSeconds",
+                        "query":  "sum(increase(hikaricp_connections_usage_seconds_sum{application=\"ticket-service\"}[30s])) / sum(increase(hikaricp_connections_usage_seconds_count{application=\"ticket-service\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "0.06377801724137923"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "hikariTimeoutCount",
+                        "query":  "sum(increase(hikaricp_connections_timeout_total{application=\"ticket-service\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "0"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "lettuceLuaAverageSeconds",
+                        "query":  "sum(increase(lettuce_command_completion_seconds_sum{application=\"ticket-service\",command=~\"EVAL|EVALSHA\"}[30s])) / sum(increase(lettuce_command_completion_seconds_count{application=\"ticket-service\",command=~\"EVAL|EVALSHA\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "0.03024041632565788"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "lettuceLuaMaxSeconds",
+                        "query":  "max_over_time(lettuce_command_completion_seconds_max{application=\"ticket-service\",command=~\"EVAL|EVALSHA\"}[30s])",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "application":  "ticket-service",
+                                                          "command":  "EVAL",
+                                                          "instance":  "ticket-service:8081",
+                                                          "job":  "spring-applications",
+                                                          "local":  "local:any",
+                                                          "remote":  "seat-redis/172.18.0.11:6379",
+                                                          "service":  "ticket-service"
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "0"
+                                                     ]
+                                       },
+                                       {
+                                           "metric":  {
+                                                          "application":  "ticket-service",
+                                                          "command":  "EVALSHA",
+                                                          "instance":  "ticket-service:8081",
+                                                          "job":  "spring-applications",
+                                                          "local":  "local:any",
+                                                          "remote":  "seat-redis/172.18.0.11:6379",
+                                                          "service":  "ticket-service"
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "0.302907259"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "lettuceLuaCount",
+                        "query":  "sum(increase(lettuce_command_completion_seconds_count{application=\"ticket-service\",command=~\"EVAL|EVALSHA\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "314.48275862068965"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "redisLuaAverageSeconds",
+                        "query":  "sum(increase(redis_commands_duration_seconds_total{redis=\"seat\",cmd=~\"eval|evalsha\"}[30s])) / sum(increase(redis_commands_total{redis=\"seat\",cmd=~\"eval|evalsha\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "NaN"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "redisLuaCount",
+                        "query":  "sum(increase(redis_commands_total{redis=\"seat\",cmd=~\"eval|evalsha\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "0"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "jvmGcPauseSeconds",
+                        "query":  "sum(increase(jvm_gc_pause_seconds_sum{application=\"ticket-service\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782088856,
+                                                         "0.08586206896551721"
+                                                     ]
+                                       }
+                                   ]
+                    }
+                ]
+}
