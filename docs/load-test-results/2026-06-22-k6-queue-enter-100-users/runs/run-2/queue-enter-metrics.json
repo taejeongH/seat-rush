@@ -1,0 +1,166 @@
+﻿{
+    "summaryPath":  "docs/load-test-results/2026-06-22-k6-queue-enter-100-users/runs/run-2/summary.json",
+    "practiceSessionId":  "fdc6a0c1-a31d-4ad2-bd2d-0ab51b93a0dd",
+    "openAtMillis":  1782103640885,
+    "windowSeconds":  30,
+    "endTimeSeconds":  1782103670,
+    "endOffsetSeconds":  30,
+    "results":  [
+                    {
+                        "name":  "queueEnterP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",result=\"success\",operation=\"entry_token.issue\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782103670,
+                                                         "1.133394147499999"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "entryTokenSignP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",result=\"success\",operation=\"entry_token.issue.sign\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782103670,
+                                                         "0.19387004966666652"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "entryTokenRedisP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",result=\"success\",operation=\"entry_token.issue.redis\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782103670,
+                                                         "0.35791394099999985"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "gatewayP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_gateway_duration_seconds_bucket{operation=\"queue.enter\",mode=\"practice\",status=~\"2..\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782103670,
+                                                         "1.3421772797499998"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "lettuceLuaAverageSeconds",
+                        "query":  "sum(increase(lettuce_command_completion_seconds_sum{application=\"queue-service\",command=~\"EVAL|EVALSHA\"}[30s])) / sum(increase(lettuce_command_completion_seconds_count{application=\"queue-service\",command=~\"EVAL|EVALSHA\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782103670,
+                                                         "0.021385836755000005"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "lettuceLuaMaxSeconds",
+                        "query":  "max_over_time(lettuce_command_completion_seconds_max{application=\"queue-service\",command=~\"EVAL|EVALSHA\"}[30s])",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "application":  "queue-service",
+                                                          "command":  "EVALSHA",
+                                                          "instance":  "queue-service:8082",
+                                                          "job":  "spring-applications",
+                                                          "local":  "local:any",
+                                                          "remote":  "queue-redis/172.18.0.10:6379",
+                                                          "service":  "queue-service"
+                                                      },
+                                           "value":  [
+                                                         1782103670,
+                                                         "0.284208723"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "lettuceLuaCount",
+                        "query":  "sum(increase(lettuce_command_completion_seconds_count{application=\"queue-service\",command=~\"EVAL|EVALSHA\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782103670,
+                                                         "413.7931034482759"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "redisLuaAverageSeconds",
+                        "query":  "sum(increase(redis_commands_duration_seconds_total{redis=\"queue\",cmd=~\"eval|evalsha\"}[30s])) / sum(increase(redis_commands_total{redis=\"queue\",cmd=~\"eval|evalsha\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782103670,
+                                                         "0.00005024218749999994"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "redisLuaCount",
+                        "query":  "sum(increase(redis_commands_total{redis=\"queue\",cmd=~\"eval|evalsha\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782103670,
+                                                         "256"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "jvmGcPauseSeconds",
+                        "query":  "sum(increase(jvm_gc_pause_seconds_sum{application=\"queue-service\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782103670,
+                                                         "0.026896551724137956"
+                                                     ]
+                                       }
+                                   ]
+                    }
+                ]
+}
