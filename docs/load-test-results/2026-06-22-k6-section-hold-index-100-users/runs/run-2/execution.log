@@ -1,0 +1,8 @@
+﻿baseUrl=https://54-116-230-157.sslip.io
+users=100
+countdownSeconds=5
+warmupUsers=100
+stabilizationCondition=hikaricp_pending_0
+measurementWindowSeconds=30
+measurementEndOffsetSeconds=30
+exitCode=99
