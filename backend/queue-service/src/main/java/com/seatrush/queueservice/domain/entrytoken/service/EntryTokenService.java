@@ -67,19 +67,24 @@ public class EntryTokenService {
             String practiceSessionId
     ) {
         return businessMetrics.record("entry_token.issue", mode(practiceSessionId), () -> {
-            EntryTokenCandidate candidate = entryTokenProvider.create(
-                    scheduleId,
-                    userId,
-                    practiceSessionId
+            String mode = mode(practiceSessionId);
+            EntryTokenCandidate candidate = businessMetrics.record(
+                    "entry_token.issue.sign",
+                    mode,
+                    () -> entryTokenProvider.create(scheduleId, userId, practiceSessionId)
             );
-            EntryTokenIssueResult result = entryTokenRedisRepository.issue(
-                    scheduleId,
-                    userId,
-                    candidate.token(),
-                    candidate.jti(),
-                    admissionProperties.capacity(),
-                    properties.ttl().toMillis(),
-                    practiceSessionId
+            EntryTokenIssueResult result = businessMetrics.record(
+                    "entry_token.issue.redis",
+                    mode,
+                    () -> entryTokenRedisRepository.issue(
+                            scheduleId,
+                            userId,
+                            candidate.token(),
+                            candidate.jti(),
+                            admissionProperties.capacity(),
+                            properties.ttl().toMillis(),
+                            practiceSessionId
+                    )
             );
 
             if (result.status() == EntryTokenIssueStatus.QUEUE_ENTRY_NOT_FOUND) {
