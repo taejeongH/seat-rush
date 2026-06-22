@@ -168,10 +168,16 @@ public class QueueService {
      * 연습 세션 키가 오래 남지 않도록 TTL을 갱신합니다.
      */
     public void expirePracticeSessionKeys(Long scheduleId, String practiceSessionId) {
-        queueRedisRepository.expirePracticeSessionKeys(
-                scheduleId,
-                practiceSessionId,
-                practiceProperties.dataTtl()
+        if (practiceSessionId == null || practiceSessionId.isBlank()) {
+            return;
+        }
+
+        businessMetrics.record("queue.practice.ttl.refresh", "practice", () ->
+                queueRedisRepository.expirePracticeSessionKeys(
+                        scheduleId,
+                        practiceSessionId,
+                        practiceProperties.dataTtl()
+                )
         );
     }
 

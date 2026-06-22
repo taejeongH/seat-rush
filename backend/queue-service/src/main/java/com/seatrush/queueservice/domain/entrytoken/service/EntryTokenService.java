@@ -103,11 +103,7 @@ public class EntryTokenService {
                 throw new CustomException(ErrorCode.QUEUE_NOT_OPEN);
             }
 
-            queueRedisRepository.expirePracticeSessionKeys(
-                    scheduleId,
-                    practiceSessionId,
-                    practiceProperties.dataTtl()
-            );
+            refreshPracticeSessionTtl(scheduleId, practiceSessionId, mode);
 
             return new EntryTokenIssueResponseDto(
                     scheduleId,
@@ -122,5 +118,26 @@ public class EntryTokenService {
         return practiceSessionId == null || practiceSessionId.isBlank()
                 ? "real"
                 : "practice";
+    }
+
+    /**
+     * 연습 세션 키의 TTL 갱신 비용을 토큰 발급 Redis Lua 처리와 구분해 기록합니다.
+     */
+    private void refreshPracticeSessionTtl(
+            Long scheduleId,
+            String practiceSessionId,
+            String mode
+    ) {
+        if (!"practice".equals(mode)) {
+            return;
+        }
+
+        businessMetrics.record("entry_token.issue.practice.ttl", mode, () ->
+                queueRedisRepository.expirePracticeSessionKeys(
+                        scheduleId,
+                        practiceSessionId,
+                        practiceProperties.dataTtl()
+                )
+        );
     }
 }

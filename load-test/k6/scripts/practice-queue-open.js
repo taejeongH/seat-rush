@@ -3,10 +3,9 @@ import { Counter, Trend } from 'k6/metrics';
 import {
   createPracticeQueueSession,
   get,
-  login,
   post,
-  signupOrIgnore,
 } from '../lib/api.js';
+import { prepareAccessTokens } from '../lib/accounts.js';
 import { uuid } from '../lib/random.js';
 
 const targetUsers = Number(__ENV.USERS || 100);
@@ -15,8 +14,7 @@ const seatLayoutId = Number(__ENV.SEAT_LAYOUT_ID || 1);
 const pollIntervalSeconds = Number(__ENV.POLL_INTERVAL_SECONDS || 1);
 const maxPollCount = Number(__ENV.MAX_POLL_COUNT || 120);
 const joinAfterOpenMillis = Number(__ENV.JOIN_AFTER_OPEN_MILLIS || 300);
-const userPrefix = __ENV.USER_PREFIX || 'k6-queue-user';
-const password = __ENV.USER_PASSWORD || 'Password1234!';
+const accountPreparationConcurrency = Number(__ENV.ACCOUNT_PREPARATION_CONCURRENCY || 20);
 
 export const queueJoinSuccess = new Counter('queue_join_success');
 export const queueEnterSuccess = new Counter('queue_enter_success');
@@ -40,6 +38,7 @@ export const options = {
 };
 
 export function setup() {
+  const accessTokens = prepareAccessTokens(targetUsers, accountPreparationConcurrency);
   const practiceSessionId = uuid();
   const openAt = new Date(Date.now() + countdownSeconds * 1000);
   const closeAt = new Date(openAt.getTime() + 30 * 60 * 1000);
@@ -52,17 +51,18 @@ export function setup() {
   );
 
   return {
-    runId: uuid().slice(0, 8),
     practiceSessionId,
     seatLayoutId,
     openAtMillis: openAt.getTime(),
+    accessTokens,
   };
 }
 
 export default function (data) {
-  const email = `${userPrefix}-${data.runId}-${__VU}@seat-rush.local`;
-  signupOrIgnore(email, password, `k6 queue user ${__VU}`);
-  const accessToken = login(email, password);
+  const accessToken = data.accessTokens[__VU - 1];
+  if (!accessToken) {
+    throw new Error(`access token is not prepared for VU ${__VU}`);
+  }
 
   const waitMillis = data.openAtMillis + joinAfterOpenMillis - Date.now();
   if (waitMillis > 0) {
