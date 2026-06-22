@@ -77,10 +77,14 @@ public class SeatHoldRedisRepository {
         arguments.add(Integer.toString(hold.seatIds().size()));
         hold.seatIds().forEach(seatId -> arguments.add(seatId.toString()));
 
-        List<Object> result = redisTemplate.execute(
-                HOLD_SEATS_SCRIPT,
-                keys,
-                arguments.toArray()
+        List<Object> result = businessMetrics.record(
+                "seat.hold.redis",
+                mode(hold),
+                () -> redisTemplate.execute(
+                        HOLD_SEATS_SCRIPT,
+                        keys,
+                        arguments.toArray()
+                )
         );
 
         if (result == null || result.size() != 2) {
@@ -274,6 +278,10 @@ public class SeatHoldRedisRepository {
 
     private String nullToBlank(String value) {
         return value == null ? "" : value;
+    }
+
+    private String mode(SeatHold hold) {
+        return hold.practiceSessionId() == null ? "real" : "practice";
     }
 
     private String blankToNull(Object value) {

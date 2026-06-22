@@ -25,6 +25,8 @@ public class GatewayMetricsFilter implements GlobalFilter, Ordered {
             Pattern.compile("/api/schedules/[^/]+/seats");
     private static final Pattern PRACTICE_SEAT_QUERY_PATH =
             Pattern.compile("/api/practice-reservations/sessions/[^/]+/seat-layouts/[^/]+/seats");
+    private static final Pattern SEAT_HOLD_PATH =
+            Pattern.compile("/api/schedules/[^/]+/seats/hold");
     private static final Pattern REAL_QUEUE_ENTER_PATH =
             Pattern.compile("/api/schedules/[^/]+/queues/enter");
     private static final Pattern PRACTICE_QUEUE_ENTER_PATH =
@@ -67,6 +69,10 @@ public class GatewayMetricsFilter implements GlobalFilter, Ordered {
         }
 
         if (HttpMethod.POST.equals(method)) {
+            if (SEAT_HOLD_PATH.matcher(path).matches()) {
+                // 연습 모드도 동일한 좌석 선점 경로를 사용하므로 Gateway에서는 모드를 구분할 수 없습니다.
+                return new GatewayMetricContext("seat.hold", "all");
+            }
             if (REAL_QUEUE_ENTER_PATH.matcher(path).matches()) {
                 return new GatewayMetricContext("queue.enter", "real");
             }

@@ -29,6 +29,10 @@ winget install k6.k6
 | `MAX_POLL_COUNT` | `120` | polling 최대 횟수 |
 | `JOIN_AFTER_OPEN_MILLIS` | `300` | 오픈 직후 진입 지연 시간 |
 | `SEAT_HOLD_RETRY_COUNT` | `5` | 좌석 선점 충돌 시 재시도 횟수 |
+| `SEAT_HOLD_SCENARIO` | `DISTRIBUTED` | `DISTRIBUTED` 또는 `CONTENTION` 좌석 선점 시나리오 |
+| `SEAT_START_ID` | `1` | 선점 측정에 사용할 첫 좌석 ID |
+| `SEAT_POOL_SIZE` | `2500` | 분산 선점에 사용할 좌석 수 |
+| `SEATS_PER_REQUEST` | `1` | 사용자 한 명이 선점할 좌석 수 |
 | `MAX_SEATS_PER_USER` | `4` | 사용자당 최대 선점 좌석 수 |
 | `ACCOUNT_POOL_FILE` | 가상 사용자 계정 풀 파일 | 사전 준비한 테스트 계정 정보 파일 |
 | `ACCOUNT_PREPARATION_CONCURRENCY` | `20` | 측정 전 토큰 갱신 동시성 |
@@ -67,6 +71,31 @@ $env:PAYMENT_FAILURE_PERCENT="0"
 $env:MAX_SEATS_PER_USER="4"
 
 k6 run .\load-test\k6\scripts\practice-reservation-flow.js
+```
+
+## 좌석 선점 성능 테스트
+
+좌석 조회·예매·결제를 제외하고, 대기열 통과 후 좌석 선점 요청만 측정합니다.
+
+분산 선점은 사용자마다 다른 좌석을 요청해 정상 처리 경로를 확인합니다.
+
+```powershell
+$env:BASE_URL="https://<gateway-domain>"
+$env:USERS="100"
+$env:SEAT_HOLD_SCENARIO="DISTRIBUTED"
+$env:SEAT_START_ID="1"
+$env:SEAT_POOL_SIZE="2500"
+$env:SEATS_PER_REQUEST="1"
+
+k6 run .\load-test\k6\scripts\practice-seat-hold.js
+```
+
+동일 좌석 경쟁은 모든 사용자가 같은 좌석을 요청합니다. 한 명의 성공과 나머지 충돌은 정상 결과입니다.
+
+```powershell
+$env:SEAT_HOLD_SCENARIO="CONTENTION"
+$env:SEAT_START_ID="1"
+k6 run .\load-test\k6\scripts\practice-seat-hold.js
 ```
 
 결과를 JSON으로 저장하려면:

@@ -1,6 +1,7 @@
 package com.seatrush.ticketservice.common.entrytoken;
 
 import com.seatrush.ticketservice.common.exception.CustomException;
+import com.seatrush.ticketservice.common.metrics.BusinessMetrics;
 import com.seatrush.ticketservice.common.response.status.ErrorCode;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -16,11 +17,14 @@ import org.springframework.stereotype.Component;
 public class EntryTokenValidator {
 
     private final JwtDecoder jwtDecoder;
+    private final BusinessMetrics businessMetrics;
 
     public EntryTokenValidator(
-            @Qualifier("entryTokenJwtDecoder") JwtDecoder jwtDecoder
+            @Qualifier("entryTokenJwtDecoder") JwtDecoder jwtDecoder,
+            BusinessMetrics businessMetrics
     ) {
         this.jwtDecoder = jwtDecoder;
+        this.businessMetrics = businessMetrics;
     }
 
     /**
@@ -32,6 +36,14 @@ public class EntryTokenValidator {
      * @throws CustomException 토큰이 유효하지 않거나 요청 사용자와 일치하지 않는 경우
      */
     public EntryTokenClaims validate(String entryToken, Long userId) {
+        return businessMetrics.record(
+                "entry_token.validate",
+                () -> validateInternal(entryToken, userId),
+                claims -> claims.practiceMode() ? "practice" : "real"
+        );
+    }
+
+    private EntryTokenClaims validateInternal(String entryToken, Long userId) {
         if (entryToken == null || entryToken.isBlank()) {
             throw new CustomException(ErrorCode.INVALID_ENTRY_TOKEN);
         }
