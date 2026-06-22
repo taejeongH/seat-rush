@@ -32,7 +32,9 @@
 - [구역별 hold 인덱스 적용 후 사용자 100명](./2026-06-22-k6-section-hold-index-100-users/README.md)
 - [대기열 입장 토큰 발급 세부 계측 사용자 100명](./2026-06-22-k6-queue-enter-100-users/README.md)
 - [대기열 전용 입장 경로 세부 계측 사용자 100명](./2026-06-22-k6-queue-open-100-users/README.md)
+- [대기열 TTL 및 polling 최적화 후 사용자 100명](./2026-06-22-k6-queue-open-100-users-after-ttl-optimization/README.md)
 
 ## 개선 문서
 
 - [좌석 조회 및 대기열 경로 성능 개선](../performance-improvements/2026-06-seat-query-optimization.md)
+- [대기열 polling 및 TTL 갱신 최적화](../performance-improvements/2026-06-queue-polling-ttl-optimization.md)
