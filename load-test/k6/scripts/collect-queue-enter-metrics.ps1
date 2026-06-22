@@ -31,11 +31,15 @@ if ($endTimeSeconds -gt $currentTimeSeconds) {
 
 $window = "${WindowSeconds}s"
 $queries = [ordered]@{
+    'queuePositionP95' = "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=`"practice`",result=`"success`",operation=`"queue.position`"}[$window])))"
     'queueEnterP95' = "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=`"practice`",result=`"success`",operation=`"entry_token.issue`"}[$window])))"
     'entryTokenSignP95' = "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=`"practice`",result=`"success`",operation=`"entry_token.issue.sign`"}[$window])))"
     'entryTokenRedisP95' = "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=`"practice`",result=`"success`",operation=`"entry_token.issue.redis`"}[$window])))"
+    'entryTokenPracticeTtlP95' = "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=`"practice`",result=`"success`",operation=`"entry_token.issue.practice.ttl`"}[$window])))"
+    'queuePracticeTtlP95' = "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=`"practice`",result=`"success`",operation=`"queue.practice.ttl.refresh`"}[$window])))"
     'gatewayP95' = "histogram_quantile(0.95, sum by (le) (increase(seat_rush_gateway_duration_seconds_bucket{operation=`"queue.enter`",mode=`"practice`",status=~`"2..`"}[$window])))"
     'lettuceLuaAverageSeconds' = "sum(increase(lettuce_command_completion_seconds_sum{application=`"queue-service`",command=~`"EVAL|EVALSHA`"}[$window])) / sum(increase(lettuce_command_completion_seconds_count{application=`"queue-service`",command=~`"EVAL|EVALSHA`"}[$window]))"
+    'lettuceLuaP95' = "histogram_quantile(0.95, sum by (le) (increase(lettuce_command_completion_seconds_bucket{application=`"queue-service`",command=~`"EVAL|EVALSHA`"}[$window])))"
     'lettuceLuaMaxSeconds' = "max_over_time(lettuce_command_completion_seconds_max{application=`"queue-service`",command=~`"EVAL|EVALSHA`"}[$window])"
     'lettuceLuaCount' = "sum(increase(lettuce_command_completion_seconds_count{application=`"queue-service`",command=~`"EVAL|EVALSHA`"}[$window]))"
     'redisLuaAverageSeconds' = "sum(increase(redis_commands_duration_seconds_total{redis=`"queue`",cmd=~`"eval|evalsha`"}[$window])) / sum(increase(redis_commands_total{redis=`"queue`",cmd=~`"eval|evalsha`"}[$window]))"
