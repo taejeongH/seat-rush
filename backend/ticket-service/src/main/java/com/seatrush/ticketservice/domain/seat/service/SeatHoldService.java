@@ -80,9 +80,13 @@ public class SeatHoldService {
             entryTokenValidator.validateSchedule(claims, scheduleId);
             List<Long> seatIds = validateSeatIds(requestedSeatIds);
 
-            Map<Long, Long> seatSectionIds = claims.practiceMode()
-                    ? validateLayoutSeats(scheduleId, seatIds)
-                    : validateSeats(scheduleId, seatIds);
+            Map<Long, Long> seatSectionIds = businessMetrics.record(
+                    "seat.hold.seat.validate",
+                    mode(claims),
+                    () -> claims.practiceMode()
+                            ? validateLayoutSeats(scheduleId, seatIds)
+                            : validateSeats(scheduleId, seatIds)
+            );
 
             Instant expiresAt = Instant.now().plus(properties.ttl());
             SeatHold hold = new SeatHold(

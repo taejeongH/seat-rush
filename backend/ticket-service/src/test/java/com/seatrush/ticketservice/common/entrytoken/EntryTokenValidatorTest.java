@@ -1,12 +1,14 @@
 package com.seatrush.ticketservice.common.entrytoken;
 
 import com.seatrush.ticketservice.common.exception.CustomException;
+import com.seatrush.ticketservice.common.metrics.BusinessMetrics;
 import com.seatrush.ticketservice.common.response.status.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 import java.time.Instant;
 import java.util.List;
@@ -25,7 +27,10 @@ class EntryTokenValidatorTest {
     @BeforeEach
     void setUp() {
         jwtDecoder = mock(JwtDecoder.class);
-        validator = new EntryTokenValidator(jwtDecoder);
+        validator = new EntryTokenValidator(
+                jwtDecoder,
+                new BusinessMetrics(new SimpleMeterRegistry())
+        );
     }
 
     /**
