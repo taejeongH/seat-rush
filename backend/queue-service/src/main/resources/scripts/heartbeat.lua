@@ -29,4 +29,19 @@ end
 local sessionExpiresAt = nowMillis + tonumber(ARGV[2])
 redis.call('PSETEX', KEYS[3], ARGV[2], '1')
 redis.call('ZADD', KEYS[2], sessionExpiresAt, ARGV[1])
+
+local practiceDataTtlMillis = tonumber(ARGV[3])
+local practiceTtlRefreshIntervalMillis = tonumber(ARGV[4])
+if practiceDataTtlMillis > 0 then
+    local scheduleStateTtl = redis.call('PTTL', KEYS[4])
+    if scheduleStateTtl > 0
+        and scheduleStateTtl <= practiceDataTtlMillis - practiceTtlRefreshIntervalMillis then
+        redis.call('PEXPIRE', KEYS[1], practiceDataTtlMillis)
+        redis.call('PEXPIRE', KEYS[2], practiceDataTtlMillis)
+        redis.call('PEXPIRE', KEYS[4], practiceDataTtlMillis)
+        redis.call('PEXPIRE', KEYS[5], practiceDataTtlMillis)
+        redis.call('PEXPIRE', KEYS[6], practiceDataTtlMillis)
+    end
+end
+
 return 1

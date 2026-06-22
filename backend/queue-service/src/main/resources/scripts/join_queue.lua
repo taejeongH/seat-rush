@@ -47,11 +47,25 @@ if scheduleStatus == 'CANCELED'
 end
 
 local sessionExpiresAt = nowMillis + tonumber(ARGV[2])
+local practiceDataTtlMillis = tonumber(ARGV[3])
+
+local function expirePracticeKeyIfNeeded(key)
+    if practiceDataTtlMillis > 0 and redis.call('PTTL', key) < 0 then
+        redis.call('PEXPIRE', key, practiceDataTtlMillis)
+    end
+end
+
+local function expirePracticeQueueKeys()
+    expirePracticeKeyIfNeeded(KEYS[1])
+    expirePracticeKeyIfNeeded(KEYS[2])
+    expirePracticeKeyIfNeeded(KEYS[4])
+end
 
 -- 이미 진입한 사용자는 기존 순번을 반환하고 세션 TTL만 갱신합니다.
 if redis.call('ZSCORE', KEYS[1], ARGV[1]) then
     redis.call('PSETEX', KEYS[5], ARGV[2], '1')
     redis.call('ZADD', KEYS[4], sessionExpiresAt, ARGV[1])
+    expirePracticeQueueKeys()
     local rank = redis.call('ZRANK', KEYS[1], ARGV[1])
     return {rank + 1, 1}
 end
@@ -60,6 +74,7 @@ local sequence = redis.call('INCR', KEYS[2])
 redis.call('ZADD', KEYS[1], sequence, ARGV[1])
 redis.call('PSETEX', KEYS[5], ARGV[2], '1')
 redis.call('ZADD', KEYS[4], sessionExpiresAt, ARGV[1])
+expirePracticeQueueKeys()
 
 local rank = redis.call('ZRANK', KEYS[1], ARGV[1])
 return {rank + 1, 0}

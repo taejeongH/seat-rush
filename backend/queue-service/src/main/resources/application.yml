@@ -58,6 +58,8 @@ queue:
   practice:
     # 연습 세션 Redis 데이터가 유지되는 시간입니다.
     data-ttl: ${QUEUE_PRACTICE_DATA_TTL:30m}
+    # 활성 연습 세션 공통 키 TTL을 다시 연장하는 최소 간격입니다.
+    ttl-refresh-interval: ${QUEUE_PRACTICE_TTL_REFRESH_INTERVAL:5m}
 
 entry-token:
   # 좌석 선택 단계에서 사용할 수 있는 시간입니다.

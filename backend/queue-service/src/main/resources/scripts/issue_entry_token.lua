@@ -75,6 +75,10 @@ end
 local expiresAt = nowMillis + tonumber(ARGV[4])
 redis.call('SET', KEYS[3], ARGV[3], 'PX', ARGV[4])
 redis.call('ZADD', KEYS[2], expiresAt, ARGV[5])
+local practiceDataTtlMillis = tonumber(ARGV[6])
+if practiceDataTtlMillis > 0 and redis.call('PTTL', KEYS[2]) < 0 then
+    redis.call('PEXPIRE', KEYS[2], practiceDataTtlMillis)
+end
 redis.call('ZREM', KEYS[1], ARGV[1])
 redis.call('ZREM', KEYS[6], ARGV[1])
 redis.call('DEL', KEYS[5])

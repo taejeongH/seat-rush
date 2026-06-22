@@ -9,6 +9,7 @@ public record VirtualUserProperties(
         String gatewayBaseUrl,
         Duration requestTimeout,
         Duration queuePollInterval,
+        Duration queueHeartbeatInterval,
         Duration queueWaitTimeout,
         Duration paymentPollInterval,
         Duration paymentWaitTimeout,

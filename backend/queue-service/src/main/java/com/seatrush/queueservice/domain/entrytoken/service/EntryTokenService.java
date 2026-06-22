@@ -12,7 +12,6 @@ import com.seatrush.queueservice.domain.entrytoken.repository.EntryTokenIssueSta
 import com.seatrush.queueservice.domain.entrytoken.repository.EntryTokenRedisRepository;
 import com.seatrush.queueservice.domain.queue.config.QueueAdmissionProperties;
 import com.seatrush.queueservice.domain.queue.config.QueuePracticeProperties;
-import com.seatrush.queueservice.domain.queue.repository.QueueRedisRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -30,7 +29,6 @@ public class EntryTokenService {
     private final EntryTokenProperties properties;
     private final QueueAdmissionProperties admissionProperties;
     private final QueuePracticeProperties practiceProperties;
-    private final QueueRedisRepository queueRedisRepository;
     private final BusinessMetrics businessMetrics;
 
     public EntryTokenService(
@@ -39,7 +37,6 @@ public class EntryTokenService {
             EntryTokenProperties properties,
             QueueAdmissionProperties admissionProperties,
             QueuePracticeProperties practiceProperties,
-            QueueRedisRepository queueRedisRepository,
             BusinessMetrics businessMetrics
     ) {
         this.entryTokenRedisRepository = entryTokenRedisRepository;
@@ -47,7 +44,6 @@ public class EntryTokenService {
         this.properties = properties;
         this.admissionProperties = admissionProperties;
         this.practiceProperties = practiceProperties;
-        this.queueRedisRepository = queueRedisRepository;
         this.businessMetrics = businessMetrics;
     }
 
@@ -83,7 +79,8 @@ public class EntryTokenService {
                             candidate.jti(),
                             admissionProperties.capacity(),
                             properties.ttl().toMillis(),
-                            practiceSessionId
+                            practiceSessionId,
+                            practiceDataTtlMillis(practiceSessionId)
                     )
             );
 
@@ -103,8 +100,6 @@ public class EntryTokenService {
                 throw new CustomException(ErrorCode.QUEUE_NOT_OPEN);
             }
 
-            refreshPracticeSessionTtl(scheduleId, practiceSessionId, mode);
-
             return new EntryTokenIssueResponseDto(
                     scheduleId,
                     result.entryToken(),
@@ -120,24 +115,9 @@ public class EntryTokenService {
                 : "practice";
     }
 
-    /**
-     * 연습 세션 키의 TTL 갱신 비용을 토큰 발급 Redis Lua 처리와 구분해 기록합니다.
-     */
-    private void refreshPracticeSessionTtl(
-            Long scheduleId,
-            String practiceSessionId,
-            String mode
-    ) {
-        if (!"practice".equals(mode)) {
-            return;
-        }
-
-        businessMetrics.record("entry_token.issue.practice.ttl", mode, () ->
-                queueRedisRepository.expirePracticeSessionKeys(
-                        scheduleId,
-                        practiceSessionId,
-                        practiceProperties.dataTtl()
-                )
-        );
+    private long practiceDataTtlMillis(String practiceSessionId) {
+        return practiceSessionId == null || practiceSessionId.isBlank()
+                ? 0
+                : practiceProperties.dataTtl().toMillis();
     }
 }

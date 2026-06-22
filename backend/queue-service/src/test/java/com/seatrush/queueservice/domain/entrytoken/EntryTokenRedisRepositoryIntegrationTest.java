@@ -69,10 +69,14 @@ class EntryTokenRedisRepositoryIntegrationTest {
                 QueueKey.waiting(SCHEDULE_ID),
                 QueueKey.sequence(SCHEDULE_ID),
                 QueueKey.scheduleState(SCHEDULE_ID),
-                QueueKey.activeEntries(SCHEDULE_ID)
+                QueueKey.activeEntries(SCHEDULE_ID),
+                QueueKey.sessionExpirations(SCHEDULE_ID)
         ));
         testUserIds.stream()
                 .map(userId -> EntryTokenKey.userToken(SCHEDULE_ID, userId))
+                .forEach(keys::add);
+        testUserIds.stream()
+                .map(userId -> QueueKey.session(SCHEDULE_ID, userId))
                 .forEach(keys::add);
         redisTemplate.delete(keys);
     }
@@ -140,6 +144,27 @@ class EntryTokenRedisRepositoryIntegrationTest {
         assertThat(state.position()).isEqualTo(1);
         assertThat(state.totalWaiting()).isEqualTo(2);
         assertThat(state.enterable()).isTrue();
+    }
+
+    /**
+     * 순번 조회는 사용자 세션 TTL을 갱신하지 않고 heartbeat만 갱신하는지 확인합니다.
+     */
+    @Test
+    void queuePositionDoesNotRefreshUserSession() {
+        long expiresAt = Instant.now().plusSeconds(20).toEpochMilli();
+        redisTemplate.opsForZSet().add(
+                QueueKey.sessionExpirations(SCHEDULE_ID),
+                FIRST_USER_ID.toString(),
+                expiresAt
+        );
+
+        queueRedisRepository.getAdmissionState(SCHEDULE_ID, FIRST_USER_ID, 1);
+
+        Double storedExpiresAt = redisTemplate.opsForZSet().score(
+                QueueKey.sessionExpirations(SCHEDULE_ID),
+                FIRST_USER_ID.toString()
+        );
+        assertThat(storedExpiresAt).isEqualTo((double) expiresAt);
     }
 
     /**

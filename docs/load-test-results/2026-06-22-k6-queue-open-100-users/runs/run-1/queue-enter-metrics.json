@@ -1,0 +1,226 @@
+﻿{
+    "summaryPath":  "docs/load-test-results/2026-06-22-k6-queue-open-100-users/runs/run-1/summary.json",
+    "practiceSessionId":  "90760278-0705-462a-bfe6-9cbd211b471c",
+    "openAtMillis":  1782110128373,
+    "windowSeconds":  30,
+    "endTimeSeconds":  1782110158,
+    "endOffsetSeconds":  30,
+    "results":  [
+                    {
+                        "name":  "queuePositionP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",result=\"success\",operation=\"queue.position\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782110158,
+                                                         "1.7043521009999998"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "queueEnterP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",result=\"success\",operation=\"entry_token.issue\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782110158,
+                                                         "1.7082256284999997"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "entryTokenSignP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",result=\"success\",operation=\"entry_token.issue.sign\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782110158,
+                                                         "0.4514493792798299"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "entryTokenRedisP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",result=\"success\",operation=\"entry_token.issue.redis\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782110158,
+                                                         "0.3877401026666665"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "entryTokenPracticeTtlP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",result=\"success\",operation=\"entry_token.issue.practice.ttl\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782110158,
+                                                         "1.2079595518749993"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "queuePracticeTtlP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",result=\"success\",operation=\"queue.practice.ttl.refresh\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782110158,
+                                                         "1.3677425612499998"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "gatewayP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_gateway_duration_seconds_bucket{operation=\"queue.enter\",mode=\"practice\",status=~\"2..\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782110158,
+                                                         "1.7895697059999998"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "lettuceLuaAverageSeconds",
+                        "query":  "sum(increase(lettuce_command_completion_seconds_sum{application=\"queue-service\",command=~\"EVAL|EVALSHA\"}[30s])) / sum(increase(lettuce_command_completion_seconds_count{application=\"queue-service\",command=~\"EVAL|EVALSHA\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782110158,
+                                                         "0.052819742686543554"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "lettuceLuaP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(lettuce_command_completion_seconds_bucket{application=\"queue-service\",command=~\"EVAL|EVALSHA\"}[30s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782110158,
+                                                         "0.13701392962500003"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "lettuceLuaMaxSeconds",
+                        "query":  "max_over_time(lettuce_command_completion_seconds_max{application=\"queue-service\",command=~\"EVAL|EVALSHA\"}[30s])",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "application":  "queue-service",
+                                                          "command":  "EVALSHA",
+                                                          "instance":  "queue-service:8082",
+                                                          "job":  "spring-applications",
+                                                          "local":  "local:any",
+                                                          "remote":  "queue-redis/172.18.0.10:6379",
+                                                          "service":  "queue-service"
+                                                      },
+                                           "value":  [
+                                                         1782110158,
+                                                         "0.197398985"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "lettuceLuaCount",
+                        "query":  "sum(increase(lettuce_command_completion_seconds_count{application=\"queue-service\",command=~\"EVAL|EVALSHA\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782110158,
+                                                         "310.3448275862069"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "redisLuaAverageSeconds",
+                        "query":  "sum(increase(redis_commands_duration_seconds_total{redis=\"queue\",cmd=~\"eval|evalsha\"}[30s])) / sum(increase(redis_commands_total{redis=\"queue\",cmd=~\"eval|evalsha\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782110158,
+                                                         "NaN"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "redisLuaCount",
+                        "query":  "sum(increase(redis_commands_total{redis=\"queue\",cmd=~\"eval|evalsha\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782110158,
+                                                         "0"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "jvmGcPauseSeconds",
+                        "query":  "sum(increase(jvm_gc_pause_seconds_sum{application=\"queue-service\"}[30s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782110158,
+                                                         "0.05793103448275862"
+                                                     ]
+                                       }
+                                   ]
+                    }
+                ]
+}

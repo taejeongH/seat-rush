@@ -209,7 +209,7 @@ export default function App() {
       } catch (caught) {
         handleError(caught)
       }
-    }, 1500)
+    }, 2000)
     return () => window.clearInterval(timer)
   }, [handleError, view, schedule, queue?.status, bookingApi])
 

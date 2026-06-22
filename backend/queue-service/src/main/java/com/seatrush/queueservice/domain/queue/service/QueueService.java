@@ -56,10 +56,10 @@ public class QueueService {
                     scheduleId,
                     userId,
                     sessionTtlMillis(),
-                    practiceSessionId
+                    practiceSessionId,
+                    practiceDataTtlMillis()
             );
             validateScheduleState(joinResult.position());
-            expirePracticeSessionKeys(scheduleId, practiceSessionId);
             long totalWaiting = queueRedisRepository.getWaitingCount(scheduleId, practiceSessionId);
 
             return new QueueJoinResponseDto(
@@ -92,15 +92,12 @@ public class QueueService {
                     scheduleId,
                     userId,
                     admissionProperties.capacity(),
-                    sessionTtlMillis(),
                     practiceSessionId
             );
 
             if (state.position() == -1) {
                 throw new CustomException(ErrorCode.QUEUE_ENTRY_NOT_FOUND);
             }
-
-            expirePracticeSessionKeys(scheduleId, practiceSessionId);
 
             return new QueuePositionResponseDto(
                     scheduleId,
@@ -127,11 +124,12 @@ public class QueueService {
                     scheduleId,
                     userId,
                     sessionTtlMillis(),
-                    practiceSessionId
+                    practiceSessionId,
+                    practiceDataTtlMillis(),
+                    practiceTtlRefreshIntervalMillis()
             )) {
                 throw new CustomException(ErrorCode.QUEUE_ENTRY_NOT_FOUND);
             }
-            expirePracticeSessionKeys(scheduleId, practiceSessionId);
         });
     }
 
@@ -159,30 +157,24 @@ public class QueueService {
                 scheduleId,
                 practiceSessionId,
                 bookingOpenAt,
-                bookingCloseAt
+                bookingCloseAt,
+                practiceProperties.dataTtl()
         );
-        expirePracticeSessionKeys(scheduleId, practiceSessionId);
     }
 
     /**
      * 연습 세션 키가 오래 남지 않도록 TTL을 갱신합니다.
      */
-    public void expirePracticeSessionKeys(Long scheduleId, String practiceSessionId) {
-        if (practiceSessionId == null || practiceSessionId.isBlank()) {
-            return;
-        }
-
-        businessMetrics.record("queue.practice.ttl.refresh", "practice", () ->
-                queueRedisRepository.expirePracticeSessionKeys(
-                        scheduleId,
-                        practiceSessionId,
-                        practiceProperties.dataTtl()
-                )
-        );
-    }
-
     private long sessionTtlMillis() {
         return admissionProperties.sessionTtl().toMillis();
+    }
+
+    private long practiceDataTtlMillis() {
+        return practiceProperties.dataTtl().toMillis();
+    }
+
+    private long practiceTtlRefreshIntervalMillis() {
+        return practiceProperties.ttlRefreshInterval().toMillis();
     }
 
     private String mode(String practiceSessionId) {
