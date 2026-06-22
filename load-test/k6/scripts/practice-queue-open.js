@@ -11,7 +11,8 @@ import { uuid } from '../lib/random.js';
 const targetUsers = Number(__ENV.USERS || 100);
 const countdownSeconds = Number(__ENV.COUNTDOWN_SECONDS || 60);
 const seatLayoutId = Number(__ENV.SEAT_LAYOUT_ID || 1);
-const pollIntervalSeconds = Number(__ENV.POLL_INTERVAL_SECONDS || 1);
+const pollIntervalSeconds = Number(__ENV.POLL_INTERVAL_SECONDS || 2);
+const heartbeatIntervalSeconds = Number(__ENV.QUEUE_HEARTBEAT_INTERVAL_SECONDS || 10);
 const maxPollCount = Number(__ENV.MAX_POLL_COUNT || 120);
 const joinAfterOpenMillis = Number(__ENV.JOIN_AFTER_OPEN_MILLIS || 300);
 const accountPreparationConcurrency = Number(__ENV.ACCOUNT_PREPARATION_CONCURRENCY || 20);
@@ -79,7 +80,19 @@ export default function (data) {
   queueJoinSuccess.add(1);
 
   const startedAt = Date.now();
+  let lastHeartbeatAt = startedAt;
   for (let i = 0; i < maxPollCount; i += 1) {
+    if (Date.now() - lastHeartbeatAt >= heartbeatIntervalSeconds * 1000) {
+      post(
+        `/api/practice/sessions/${data.practiceSessionId}/seat-layouts/${data.seatLayoutId}/queues/heartbeat`,
+        null,
+        accessToken,
+        null,
+        'practice.queue.heartbeat',
+      );
+      lastHeartbeatAt = Date.now();
+    }
+
     const position = get(
       `/api/practice/sessions/${data.practiceSessionId}/seat-layouts/${data.seatLayoutId}/queues/me`,
       accessToken,

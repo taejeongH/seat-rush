@@ -31,6 +31,7 @@
 - [HikariCP 및 Redis hold 세부 계측 사용자 100명](./2026-06-21-k6-hikari-redis-metrics-100-users/README.md)
 - [구역별 hold 인덱스 적용 후 사용자 100명](./2026-06-22-k6-section-hold-index-100-users/README.md)
 - [대기열 입장 토큰 발급 세부 계측 사용자 100명](./2026-06-22-k6-queue-enter-100-users/README.md)
+- [대기열 전용 입장 경로 세부 계측 사용자 100명](./2026-06-22-k6-queue-open-100-users/README.md)
 
 ## 개선 문서
 

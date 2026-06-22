@@ -57,7 +57,7 @@ public class QueueRedisRepository {
      * 실제 회차 대기열에 사용자를 등록합니다.
      */
     public QueueJoinResult join(Long scheduleId, Long userId, long sessionTtlMillis) {
-        return join(scheduleId, userId, sessionTtlMillis, null);
+        return join(scheduleId, userId, sessionTtlMillis, null, 0);
     }
 
     /**
@@ -69,7 +69,8 @@ public class QueueRedisRepository {
             Long scheduleId,
             Long userId,
             long sessionTtlMillis,
-            String practiceSessionId
+            String practiceSessionId,
+            long practiceDataTtlMillis
     ) {
         List<Long> result = redisTemplate.execute(
                 JOIN_QUEUE_SCRIPT,
@@ -81,7 +82,8 @@ public class QueueRedisRepository {
                         QueueKey.session(scheduleId, userId, practiceSessionId)
                 ),
                 userId.toString(),
-                Long.toString(sessionTtlMillis)
+                Long.toString(sessionTtlMillis),
+                Long.toString(practiceDataTtlMillis)
         );
 
         if (result == null || result.size() != 2) {
@@ -121,15 +123,6 @@ public class QueueRedisRepository {
     /**
      * 실제 회차에서 사용자의 대기 상태와 입장 가능 여부를 조회합니다.
      */
-    public QueueAdmissionState getAdmissionState(
-            Long scheduleId,
-            Long userId,
-            int admissionCapacity,
-            long sessionTtlMillis
-    ) {
-        return getAdmissionState(scheduleId, userId, admissionCapacity, sessionTtlMillis, null);
-    }
-
     /**
      * 지정된 회차 또는 연습 세션에서 사용자의 대기 상태와 입장 가능 여부를 조회합니다.
      *
@@ -139,7 +132,6 @@ public class QueueRedisRepository {
             Long scheduleId,
             Long userId,
             int admissionCapacity,
-            long sessionTtlMillis,
             String practiceSessionId
     ) {
         List<Object> result = redisTemplate.execute(
@@ -147,12 +139,10 @@ public class QueueRedisRepository {
                 List.of(
                         QueueKey.waiting(scheduleId, practiceSessionId),
                         QueueKey.activeEntries(scheduleId, practiceSessionId),
-                        QueueKey.sessionExpirations(scheduleId, practiceSessionId),
-                        QueueKey.session(scheduleId, userId, practiceSessionId)
+                        QueueKey.sessionExpirations(scheduleId, practiceSessionId)
                 ),
                 userId.toString(),
-                Integer.toString(admissionCapacity),
-                Long.toString(sessionTtlMillis)
+                Integer.toString(admissionCapacity)
         );
 
         if (result == null || result.size() != 3) {
@@ -174,7 +164,7 @@ public class QueueRedisRepository {
             Long userId,
             int admissionCapacity
     ) {
-        return getAdmissionState(scheduleId, userId, admissionCapacity, 30_000);
+        return getAdmissionState(scheduleId, userId, admissionCapacity, null);
     }
 
     /**
@@ -191,7 +181,7 @@ public class QueueRedisRepository {
      * 실제 회차 대기열에서 사용자 세션의 만료 시간을 연장합니다.
      */
     public boolean heartbeat(Long scheduleId, Long userId, long sessionTtlMillis) {
-        return heartbeat(scheduleId, userId, sessionTtlMillis, null);
+        return heartbeat(scheduleId, userId, sessionTtlMillis, null, 0, 0);
     }
 
     /**
@@ -201,17 +191,24 @@ public class QueueRedisRepository {
             Long scheduleId,
             Long userId,
             long sessionTtlMillis,
-            String practiceSessionId
+            String practiceSessionId,
+            long practiceDataTtlMillis,
+            long practiceTtlRefreshIntervalMillis
     ) {
         Long result = redisTemplate.execute(
                 HEARTBEAT_SCRIPT,
                 List.of(
                         QueueKey.waiting(scheduleId, practiceSessionId),
                         QueueKey.sessionExpirations(scheduleId, practiceSessionId),
-                        QueueKey.session(scheduleId, userId, practiceSessionId)
+                        QueueKey.session(scheduleId, userId, practiceSessionId),
+                        QueueKey.scheduleState(scheduleId, practiceSessionId),
+                        QueueKey.sequence(scheduleId, practiceSessionId),
+                        QueueKey.activeEntries(scheduleId, practiceSessionId)
                 ),
                 userId.toString(),
-                Long.toString(sessionTtlMillis)
+                Long.toString(sessionTtlMillis),
+                Long.toString(practiceDataTtlMillis),
+                Long.toString(practiceTtlRefreshIntervalMillis)
         );
         return result != null && result == 1L;
     }
@@ -229,24 +226,6 @@ public class QueueRedisRepository {
     /**
      * 연습 세션 대기열 관련 키에 TTL을 적용합니다.
      */
-    public void expirePracticeSessionKeys(
-            Long scheduleId,
-            String practiceSessionId,
-            Duration ttl
-    ) {
-        if (practiceSessionId == null || practiceSessionId.isBlank()) {
-            return;
-        }
-
-        List.of(
-                QueueKey.waiting(scheduleId, practiceSessionId),
-                QueueKey.sequence(scheduleId, practiceSessionId),
-                QueueKey.scheduleState(scheduleId, practiceSessionId),
-                QueueKey.activeEntries(scheduleId, practiceSessionId),
-                QueueKey.sessionExpirations(scheduleId, practiceSessionId)
-        ).forEach(key -> redisTemplate.expire(key, ttl));
-    }
-
     /**
      * 연습 모드에서 사용할 가상 회차 상태를 Redis에 생성합니다.
      */
@@ -254,10 +233,12 @@ public class QueueRedisRepository {
             Long scheduleId,
             String practiceSessionId,
             Instant bookingOpenAt,
-            Instant bookingCloseAt
+            Instant bookingCloseAt,
+            Duration dataTtl
     ) {
+        String scheduleStateKey = QueueKey.scheduleState(scheduleId, practiceSessionId);
         redisTemplate.opsForHash().putAll(
-                QueueKey.scheduleState(scheduleId, practiceSessionId),
+                scheduleStateKey,
                 Map.of(
                         "status", "BOOKING_OPEN",
                         "bookingOpenAt", Long.toString(bookingOpenAt.toEpochMilli()),
@@ -265,6 +246,7 @@ public class QueueRedisRepository {
                         "version", "0"
                 )
         );
+        redisTemplate.expire(scheduleStateKey, dataTtl);
     }
 
     /**

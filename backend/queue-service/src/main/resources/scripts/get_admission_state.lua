@@ -5,7 +5,6 @@
     1. waiting sorted set
     2. active entry sorted set
     3. waiting session expiration sorted set
-    4. user session key
   ARGV:
     1. userId
     2. admission capacity
@@ -33,10 +32,6 @@ if not rank then
 end
 
 -- 현재 조회가 들어온 사용자는 아직 대기 화면에 있는 것으로 보고 TTL을 갱신합니다.
-local sessionExpiresAt = nowMillis + tonumber(ARGV[3])
-redis.call('PSETEX', KEYS[4], ARGV[3], '1')
-redis.call('ZADD', KEYS[3], sessionExpiresAt, ARGV[1])
-
 local totalWaiting = redis.call('ZCARD', KEYS[1])
 local activeCount = redis.call('ZCARD', KEYS[2])
 local availableSlots = tonumber(ARGV[2]) - activeCount

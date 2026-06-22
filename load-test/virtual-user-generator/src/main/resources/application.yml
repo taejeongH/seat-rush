@@ -11,7 +11,8 @@ server:
 virtual-user:
   gateway-base-url: ${VIRTUAL_USER_GATEWAY_BASE_URL}
   request-timeout: ${VIRTUAL_USER_REQUEST_TIMEOUT:30s}
-  queue-poll-interval: ${VIRTUAL_USER_QUEUE_POLL_INTERVAL:500ms}
+  queue-poll-interval: ${VIRTUAL_USER_QUEUE_POLL_INTERVAL:2s}
+  queue-heartbeat-interval: ${VIRTUAL_USER_QUEUE_HEARTBEAT_INTERVAL:10s}
   queue-wait-timeout: ${VIRTUAL_USER_QUEUE_WAIT_TIMEOUT:20m}
   payment-poll-interval: ${VIRTUAL_USER_PAYMENT_POLL_INTERVAL:200ms}
   payment-wait-timeout: ${VIRTUAL_USER_PAYMENT_WAIT_TIMEOUT:15s}

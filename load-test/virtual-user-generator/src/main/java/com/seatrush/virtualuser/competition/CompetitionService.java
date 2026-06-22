@@ -292,7 +292,8 @@ public class CompetitionService {
                 user,
                 seatLayoutId,
                 practiceSessionId,
-                Instant.now().plus(properties.queueWaitTimeout())
+                Instant.now().plus(properties.queueWaitTimeout()),
+                Instant.now().plus(properties.queueHeartbeatInterval())
         );
     }
 
@@ -396,17 +397,30 @@ public class CompetitionService {
             VirtualUser user,
             long seatLayoutId,
             String practiceSessionId,
-            Instant deadline
+            Instant deadline,
+            Instant nextHeartbeatAt
     ) {
         if (Instant.now().isAfter(deadline)) {
             return Mono.error(new IllegalStateException("queue wait timeout"));
         }
 
-        return apiClient.getPracticeQueuePosition(
+        boolean heartbeatRequired = !Instant.now().isBefore(nextHeartbeatAt);
+        Instant updatedHeartbeatAt = heartbeatRequired
+                ? Instant.now().plus(properties.queueHeartbeatInterval())
+                : nextHeartbeatAt;
+        Mono<Void> heartbeat = heartbeatRequired
+                ? apiClient.heartbeatPracticeQueue(
                         practiceSessionId,
                         seatLayoutId,
                         user.accessToken()
-                )
+                ).then()
+                : Mono.empty();
+
+        return heartbeat.then(apiClient.getPracticeQueuePosition(
+                        practiceSessionId,
+                        seatLayoutId,
+                        user.accessToken()
+                ))
                 .flatMap(position -> {
                     update(
                             user,
@@ -421,7 +435,8 @@ public class CompetitionService {
                                     user,
                                     seatLayoutId,
                                     practiceSessionId,
-                                    deadline
+                                    deadline,
+                                    updatedHeartbeatAt
                             ));
                 });
     }

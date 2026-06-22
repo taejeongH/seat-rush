@@ -25,7 +25,7 @@ winget install k6.k6
 | `USERS` | `100` | 동시 사용자 수 |
 | `COUNTDOWN_SECONDS` | `60` | 연습 티켓 오픈까지 대기 시간 |
 | `SEAT_LAYOUT_ID` | `1` | 연습에 사용할 좌석 배치 ID |
-| `POLL_INTERVAL_SECONDS` | `1` | 대기열/예매 상태 조회 주기 |
+| `POLL_INTERVAL_SECONDS` | `2` | 대기열/예매 상태 조회 주기 |
 | `MAX_POLL_COUNT` | `120` | polling 최대 횟수 |
 | `JOIN_AFTER_OPEN_MILLIS` | `300` | 오픈 직후 진입 지연 시간 |
 | `SEAT_HOLD_RETRY_COUNT` | `5` | 좌석 선점 충돌 시 재시도 횟수 |

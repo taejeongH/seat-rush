@@ -43,7 +43,7 @@ public class EntryTokenRedisRepository {
             int admissionCapacity,
             long ttlMillis
     ) {
-        return issue(scheduleId, userId, entryToken, jti, admissionCapacity, ttlMillis, null);
+        return issue(scheduleId, userId, entryToken, jti, admissionCapacity, ttlMillis, null, 0);
     }
 
     /**
@@ -56,7 +56,8 @@ public class EntryTokenRedisRepository {
             String jti,
             int admissionCapacity,
             long ttlMillis,
-            String practiceSessionId
+            String practiceSessionId,
+            long practiceDataTtlMillis
     ) {
         List<Object> result = redisTemplate.execute(
                 ISSUE_ENTRY_TOKEN_SCRIPT,
@@ -72,7 +73,8 @@ public class EntryTokenRedisRepository {
                 Integer.toString(admissionCapacity),
                 entryToken,
                 Long.toString(ttlMillis),
-                jti
+                jti,
+                Long.toString(practiceDataTtlMillis)
         );
 
         if (result == null || result.size() != 3) {

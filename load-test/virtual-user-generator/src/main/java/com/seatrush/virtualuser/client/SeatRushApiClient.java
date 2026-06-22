@@ -88,6 +88,16 @@ public class SeatRushApiClient {
                 accessToken, null);
     }
 
+    public Mono<JsonNode> heartbeatPracticeQueue(
+            String practiceSessionId,
+            long seatLayoutId,
+            String accessToken
+    ) {
+        return post("/api/practice/sessions/%s/seat-layouts/%d/queues/heartbeat"
+                        .formatted(practiceSessionId, seatLayoutId),
+                accessToken, null, null);
+    }
+
     public Mono<JsonNode> enterPracticeQueue(
             String practiceSessionId,
             long seatLayoutId,
