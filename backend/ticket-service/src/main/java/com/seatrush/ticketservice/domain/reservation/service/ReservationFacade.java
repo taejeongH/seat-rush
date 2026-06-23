@@ -55,15 +55,6 @@ public class ReservationFacade {
      */
     public ReservationResponseDto create(String holdId, EntryTokenClaims claims) {
         return businessMetrics.record("reservation.create.facade", mode(claims), () -> {
-            boolean reservationExists = businessMetrics.record(
-                    "reservation.create.duplicate.precheck",
-                    mode(claims),
-                    () -> reservationRepository.existsByHoldId(holdId)
-            );
-            if (reservationExists) {
-                throw new CustomException(ErrorCode.RESERVATION_ALREADY_EXISTS);
-            }
-
             // 1. Redis 선점 기한 연장 처리 (DB 트랜잭션 외부에서 작동)
             Instant expiresAtInstant = Instant.now().plus(properties.paymentTimeout());
             SeatHold hold = seatHoldService.extendForReservation(

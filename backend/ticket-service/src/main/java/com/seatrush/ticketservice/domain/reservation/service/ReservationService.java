@@ -76,15 +76,6 @@ public class ReservationService {
             LocalDateTime expiresAt
     ) {
         return businessMetrics.record("reservation.create", mode(hold), () -> {
-            boolean reservationExists = businessMetrics.record(
-                    "reservation.create.duplicate.transaction.check",
-                    mode(hold),
-                    () -> reservationRepository.existsByHoldId(hold.holdId())
-            );
-            if (reservationExists) {
-                throw new CustomException(ErrorCode.RESERVATION_ALREADY_EXISTS);
-            }
-
             // 1. 선점된 좌석 정보 조회 및 가용 여부 확인
             List<Seat> seats = businessMetrics.record(
                     "reservation.create.seats.load",
