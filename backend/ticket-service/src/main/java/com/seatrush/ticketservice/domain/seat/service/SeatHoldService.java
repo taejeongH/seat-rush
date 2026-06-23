@@ -163,17 +163,19 @@ public class SeatHoldService {
             Duration ttl,
             Instant expiresAt
     ) {
-        SeatHold hold = findHold(holdId, claims.practiceSessionId());
-        validateHoldAccess(hold, claims);
+        return businessMetrics.record("reservation.hold.extend", mode(claims), () -> {
+            SeatHold hold = findHold(holdId, claims.practiceSessionId());
+            validateHoldAccess(hold, claims);
 
-        if (!holdRedisRepository.extendForReservation(
-                hold,
-                ttl.toMillis(),
-                expiresAt
-        )) {
-            throw new CustomException(ErrorCode.SEAT_HOLD_NOT_FOUND);
-        }
-        return hold;
+            if (!holdRedisRepository.extendForReservation(
+                    hold,
+                    ttl.toMillis(),
+                    expiresAt
+            )) {
+                throw new CustomException(ErrorCode.SEAT_HOLD_NOT_FOUND);
+            }
+            return hold;
+        });
     }
 
     /**
