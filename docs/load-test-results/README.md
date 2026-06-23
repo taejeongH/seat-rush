@@ -36,7 +36,7 @@
 - [분산 좌석 선점 사용자 100명 기준선](./2026-06-22-k6-seat-hold-distributed-100-users/README.md)
 - [연습 좌석 검증 조회 제거 후 분산 좌석 선점 사용자 100명](./2026-06-23-k6-seat-hold-layout-validation-100-users/README.md)
 - [실제 예매 생성 사용자 100명 기준선](./2026-06-23-k6-reservation-create-100-users/README.md)
-
+- [좌석 선점 연장 최적화 후 실제 예매 생성 사용자 100명](./2026-06-23-k6-reservation-create-100-users-after-hold-extend-optimization/README.md)
 
 ## 개선 문서
 

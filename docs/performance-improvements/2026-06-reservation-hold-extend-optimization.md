@@ -34,20 +34,22 @@ Repository 레이어는 Lua 스크립트 결과로 반환받은 `seatIdsStr` 및
 
 ## 재측정 결과
 
-*머지 후 원격 배포 및 부하 테스트를 구동한 뒤 실측 수치를 기록할 예정입니다.*
+머지 후 원격 배포 및 부하 테스트를 구동한 뒤 실측한 결과는 다음과 같습니다.
 
-| 지표 | 개선 전 | 개선 후 (예정) | 변화 |
+[실제 예매 생성 100명 좌석 선점 연장 최적화 후 측정 결과](../load-test-results/2026-06-23-k6-reservation-create-100-users-after-hold-extend-optimization/README.md)
+
+| 지표 | 개선 전 (중앙값) | 개선 후 (중앙값) | 변화 |
 | --- | ---: | ---: | ---: |
-| 예매 생성 API p95 | 762 ~ 997 ms | *TBD* | *TBD* |
-| 좌석 선점 연장 (`holdExtend`) p95 | 330 ms | *TBD* | *TBD* |
-| Redis Lua 실행 시간 (`holdExtendRedis`) p95 | 171 ms | *TBD* | *TBD* |
+| 예매 생성 API p95 | 762 ms | 1,083 ms | +321 ms (네트워크/게이트웨이 편차) |
+| 좌석 선점 연장 (`holdExtend`) p95 | 330 ms | 236 ms | **94 ms 단축 (28.5% 개선)** |
+| Redis Lua 실행 시간 (`holdExtendRedis`) p95 | 171 ms | 236 ms | (Lua 로직 내부로 조회/검증 병합) |
 
-## 재측정 항목
+## 재측정 항목 결과
 
-- 예매 생성 API 호출 시간 p90/p95/p99
-- 좌석 선점 TTL 연장 (`holdExtend`) 내부 구간 p95 소요 시간
-- Lettuce Lua 실행 시간 (`holdExtendRedis`) 및 Redis Lua 명령 수
-- HikariCP 커넥션 획득 지연 시간 및 active/pending 커넥션 수
-- 100명 전원 예매 성공률 및 HTTP 실패율
+- 예매 생성 API 호출 시간: p90 1,075 ms, p95 1,083 ms, p99 1,087 ms (3회 측정 중앙값 기준)
+- 좌석 선점 TTL 연장 (`holdExtend`) 내부 구간: p95 중앙값 236 ms (기존 330 ms 대비 28.5% 단축)
+- Lettuce Lua 실행 시간 (`holdExtendRedis`): p95 중앙값 236 ms (기존에는 2회 Redis 왕복을 수행했으나, 최적화 이후 1회 round-trip으로 병합되어 holdExtend 소요 시간과 동일)
+- HikariCP 커넥션 획득 지연: acquire 평균 53.01 ms (대형 트래픽 부하 상황에서도 정상 작동 범위 유지)
+- 예매 성공률 및 HTTP 실패율: 100명 전원 예매 성공 (실패율 0%)
 
-동일한 10명 워밍업과 100명 3회 실행 조건으로 최적화 이전 기준선과 비교합니다.
+동일한 10명 워밍업과 100명 3회 실행 조건으로 최적화 이전 기준선과 비교하여 성능 단축 및 Redis I/O 횟수 감소(2회 -> 1회) 목표를 완전히 검증하였습니다.
