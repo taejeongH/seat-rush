@@ -164,14 +164,17 @@ public class SeatHoldService {
             Instant expiresAt
     ) {
         return businessMetrics.record("reservation.hold.extend", mode(claims), () -> {
-            SeatHold hold = findHold(holdId, claims.practiceSessionId());
-            validateHoldAccess(hold, claims);
-
-            if (!holdRedisRepository.extendForReservation(
-                    hold,
+            SeatHold hold = holdRedisRepository.extendForReservation(
+                    holdId,
+                    claims.userId(),
+                    claims.scheduleId(),
+                    claims.jti(),
+                    claims.practiceSessionId(),
                     ttl.toMillis(),
                     expiresAt
-            )) {
+            );
+
+            if (hold == null) {
                 throw new CustomException(ErrorCode.SEAT_HOLD_NOT_FOUND);
             }
             return hold;
