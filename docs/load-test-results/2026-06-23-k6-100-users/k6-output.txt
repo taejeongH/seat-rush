@@ -1,0 +1,173 @@
+﻿
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+     execution: local
+        script: .\load-test\k6\scripts\practice-reservation-flow.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 100 max VUs, 6m35s max duration (incl. graceful stop):
+              * reservation_flow: 1 iterations for each of 100 VUs (maxDuration: 6m5s, gracefulStop: 30s)
+
+
+Run                [ 100% ] setup()
+reservation_flow   [   0% ]
+
+Run                [ 100% ] setup()
+reservation_flow   [   0% ]
+
+Run                [ 100% ] setup()
+reservation_flow   [   0% ]
+
+Run                [ 100% ] setup()
+reservation_flow   [   0% ]
+
+Run                [ 100% ] setup()
+reservation_flow   [   0% ]
+
+Run                [ 100% ] setup()
+reservation_flow   [   0% ]
+
+Run                [ 100% ] setup()
+reservation_flow   [   0% ]
+
+Run                [ 100% ] setup()
+reservation_flow   [   0% ]
+
+Run                [ 100% ] setup()
+reservation_flow   [   0% ]
+
+running (0m09.9s), 100/100 VUs, 0 complete and 0 interrupted iterations
+reservation_flow   [   0% ] 100 VUs  0m00.9s/6m5s  000/100 iters, 1 per VU
+
+running (0m10.9s), 100/100 VUs, 0 complete and 0 interrupted iterations
+reservation_flow   [   0% ] 100 VUs  0m01.9s/6m5s  000/100 iters, 1 per VU
+
+running (0m11.9s), 100/100 VUs, 0 complete and 0 interrupted iterations
+reservation_flow   [   0% ] 100 VUs  0m02.9s/6m5s  000/100 iters, 1 per VU
+
+running (0m12.9s), 100/100 VUs, 0 complete and 0 interrupted iterations
+reservation_flow   [   0% ] 100 VUs  0m03.9s/6m5s  000/100 iters, 1 per VU
+
+running (0m13.9s), 100/100 VUs, 0 complete and 0 interrupted iterations
+reservation_flow   [   0% ] 100 VUs  0m04.9s/6m5s  000/100 iters, 1 per VU
+
+running (0m14.9s), 100/100 VUs, 0 complete and 0 interrupted iterations
+reservation_flow   [   0% ] 100 VUs  0m05.9s/6m5s  000/100 iters, 1 per VU
+
+running (0m15.9s), 100/100 VUs, 0 complete and 0 interrupted iterations
+reservation_flow   [   0% ] 100 VUs  0m06.9s/6m5s  000/100 iters, 1 per VU
+
+running (0m16.9s), 100/100 VUs, 0 complete and 0 interrupted iterations
+reservation_flow   [   0% ] 100 VUs  0m07.9s/6m5s  000/100 iters, 1 per VU
+
+running (0m17.9s), 100/100 VUs, 0 complete and 0 interrupted iterations
+reservation_flow   [   0% ] 100 VUs  0m08.9s/6m5s  000/100 iters, 1 per VU
+
+running (0m18.9s), 100/100 VUs, 0 complete and 0 interrupted iterations
+reservation_flow   [   0% ] 100 VUs  0m09.9s/6m5s  000/100 iters, 1 per VU
+
+running (0m19.9s), 100/100 VUs, 0 complete and 0 interrupted iterations
+reservation_flow   [   0% ] 100 VUs  0m10.9s/6m5s  000/100 iters, 1 per VU
+
+running (0m20.9s), 100/100 VUs, 0 complete and 0 interrupted iterations
+reservation_flow   [   0% ] 100 VUs  0m11.9s/6m5s  000/100 iters, 1 per VU
+
+running (0m21.9s), 100/100 VUs, 0 complete and 0 interrupted iterations
+reservation_flow   [   0% ] 100 VUs  0m12.9s/6m5s  000/100 iters, 1 per VU
+
+running (0m22.9s), 095/100 VUs, 5 complete and 0 interrupted iterations
+reservation_flow   [   5% ] 100 VUs  0m13.9s/6m5s  005/100 iters, 1 per VU
+
+running (0m23.9s), 092/100 VUs, 8 complete and 0 interrupted iterations
+reservation_flow   [   8% ] 100 VUs  0m14.9s/6m5s  008/100 iters, 1 per VU
+
+running (0m24.9s), 088/100 VUs, 12 complete and 0 interrupted iterations
+reservation_flow   [  12% ] 100 VUs  0m15.9s/6m5s  012/100 iters, 1 per VU
+
+running (0m25.9s), 063/100 VUs, 37 complete and 0 interrupted iterations
+reservation_flow   [  37% ] 100 VUs  0m16.9s/6m5s  037/100 iters, 1 per VU
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{name:practice.payment.complete}
+    ✓ 'p(95)<1500' p(95)=1.24s
+    ✓ 'p(99)<3000' p(99)=1.53s
+
+    http_req_duration{name:practice.queue.enter}
+    ✗ 'p(95)<1000' p(95)=3.13s
+    ✗ 'p(99)<2000' p(99)=3.28s
+
+    http_req_duration{name:practice.queue.join}
+    ✗ 'p(95)<1000' p(95)=1.49s
+    ✓ 'p(99)<2000' p(99)=1.52s
+
+    http_req_duration{name:practice.reservation.create}
+    ✗ 'p(95)<1500' p(95)=2.5s
+    ✓ 'p(99)<3000' p(99)=2.9s
+
+    http_req_duration{name:practice.seats.hold}
+    ✗ 'p(95)<1500' p(95)=1.96s
+    ✓ 'p(99)<3000' p(99)=2.09s
+
+    http_req_duration{name:practice.seats}
+    ✗ 'p(95)<1500' p(95)=2.17s
+    ✓ 'p(99)<3000' p(99)=2.31s
+
+    http_req_failed
+    ✓ 'rate<0.02' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 903     33.96124/s
+    checks_succeeded...: 100.00% 903 out of 903
+    checks_failed......: 0.00%   0 out of 903
+
+    ✓ practice.queue.session.create status is 2xx
+    ✓ practice.queue.join status is 2xx
+    ✓ practice.queue.me status is 2xx
+    ✓ practice.queue.enter status is 2xx
+    ✓ practice.sections status is 2xx
+    ✓ practice.seats status is 2xx
+    ✓ practice.reservation.create status is 2xx
+    ✓ practice.payment.request status is 2xx
+    ✓ practice.payment.complete status is 2xx
+    ✓ practice.reservation.get status is 2xx
+
+    CUSTOM
+    practice_reservation_flow_duration_ms....: avg=11490.78 min=8253     med=11865    p(90)=12307.4 p(95)=12330.1 p(99)=12335.08 max=12343 
+    reservation_confirmed....................: 100    3.760935/s
+    seat_hold_retry_conflict.................: 2      0.075219/s
+
+    HTTP
+    http_req_duration........................: avg=1.07s    min=26.75ms  med=931.87ms p(90)=1.96s   p(95)=2.31s   p(99)=3.08s    max=3.31s 
+      { expected_response:true }.............: avg=1.07s    min=26.75ms  med=931.87ms p(90)=1.96s   p(95)=2.31s   p(99)=3.08s    max=3.31s 
+      { name:practice.payment.complete }.....: avg=925.09ms min=557.07ms med=920.97ms p(90)=1.09s   p(95)=1.24s   p(99)=1.53s    max=1.54s 
+      { name:practice.queue.enter }..........: avg=2.14s    min=649.88ms med=2.25s    p(90)=3.09s   p(95)=3.13s   p(99)=3.28s    max=3.31s 
+      { name:practice.queue.join }...........: avg=1.12s    min=496.48ms med=1.15s    p(90)=1.44s   p(95)=1.49s   p(99)=1.52s    max=1.58s 
+      { name:practice.reservation.create }...: avg=1.44s    min=666.69ms med=1.28s    p(90)=2.33s   p(95)=2.5s    p(99)=2.9s     max=2.91s 
+      { name:practice.seats.hold }...........: avg=1.43s    min=253.47ms med=1.47s    p(90)=1.89s   p(95)=1.96s   p(99)=2.09s    max=2.25s 
+      { name:practice.seats }................: avg=1.56s    min=190.74ms med=1.63s    p(90)=2.03s   p(95)=2.17s   p(99)=2.31s    max=2.42s 
+    http_req_failed..........................: 0.00%  0 out of 1105
+    http_reqs................................: 1105   41.558328/s
+
+    EXECUTION
+    iteration_duration.......................: avg=16.76s   min=13.52s   med=17.13s   p(90)=17.58s  p(95)=17.6s   p(99)=17.6s    max=17.61s
+    iterations...............................: 100    3.760935/s
+    vus......................................: 63     min=0         max=100
+    vus_max..................................: 100    min=100       max=100
+
+    NETWORK
+    data_received............................: 22 MB  840 kB/s
+    data_sent................................: 503 kB 19 kB/s
+
+
+
+
+running (0m26.6s), 000/100 VUs, 100 complete and 0 interrupted iterations
+reservation_flow ✓ [ 100% ] 100 VUs  0m17.6s/6m5s  100/100 iters, 1 per VU

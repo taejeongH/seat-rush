@@ -1,0 +1,321 @@
+﻿{
+    "root_group":  {
+                       "groups":  {
+                                      "setup":  {
+                                                    "groups":  {
+
+                                                               },
+                                                    "checks":  {
+                                                                   "practice.queue.session.create status is 2xx":  {
+                                                                                                                       "name":  "practice.queue.session.create status is 2xx",
+                                                                                                                       "path":  "::setup::practice.queue.session.create status is 2xx",
+                                                                                                                       "id":  "162bc246148dfdca1c2747de5091fdaf",
+                                                                                                                       "passes":  1,
+                                                                                                                       "fails":  0
+                                                                                                                   }
+                                                               },
+                                                    "name":  "setup",
+                                                    "path":  "::setup",
+                                                    "id":  "5c0f8025f7e0b6654089e5b00e950f1a"
+                                                }
+                                  },
+                       "checks":  {
+                                      "practice.queue.join status is 2xx":  {
+                                                                                "id":  "79e74f18b37f568a4d809f241c683728",
+                                                                                "passes":  988,
+                                                                                "fails":  12,
+                                                                                "name":  "practice.queue.join status is 2xx",
+                                                                                "path":  "::practice.queue.join status is 2xx"
+                                                                            },
+                                      "practice.queue.me status is 2xx":  {
+                                                                              "name":  "practice.queue.me status is 2xx",
+                                                                              "path":  "::practice.queue.me status is 2xx",
+                                                                              "id":  "59d5f15acca19d1a446814d1cddfd679",
+                                                                              "passes":  11789,
+                                                                              "fails":  22
+                                                                          },
+                                      "practice.queue.enter status is 2xx":  {
+                                                                                 "name":  "practice.queue.enter status is 2xx",
+                                                                                 "path":  "::practice.queue.enter status is 2xx",
+                                                                                 "id":  "fb0100df363e7118bebce2789a3afe59",
+                                                                                 "passes":  964,
+                                                                                 "fails":  2
+                                                                             },
+                                      "practice.sections status is 2xx":  {
+                                                                              "path":  "::practice.sections status is 2xx",
+                                                                              "id":  "22643ec095f2d9ca4bda185a10218dd3",
+                                                                              "passes":  964,
+                                                                              "fails":  0,
+                                                                              "name":  "practice.sections status is 2xx"
+                                                                          },
+                                      "practice.seats status is 2xx":  {
+                                                                           "passes":  980,
+                                                                           "fails":  0,
+                                                                           "name":  "practice.seats status is 2xx",
+                                                                           "path":  "::practice.seats status is 2xx",
+                                                                           "id":  "2175d65b4c21c5db5af9d68610f4780d"
+                                                                       },
+                                      "practice.reservation.create status is 2xx":  {
+                                                                                        "path":  "::practice.reservation.create status is 2xx",
+                                                                                        "id":  "417e5e07fc409e29953dbd27b83a6185",
+                                                                                        "passes":  964,
+                                                                                        "fails":  0,
+                                                                                        "name":  "practice.reservation.create status is 2xx"
+                                                                                    },
+                                      "practice.payment.request status is 2xx":  {
+                                                                                     "passes":  964,
+                                                                                     "fails":  0,
+                                                                                     "name":  "practice.payment.request status is 2xx",
+                                                                                     "path":  "::practice.payment.request status is 2xx",
+                                                                                     "id":  "4a8a1470e8a272ab2b8db2a97b04ae97"
+                                                                                 },
+                                      "practice.payment.complete status is 2xx":  {
+                                                                                      "fails":  0,
+                                                                                      "name":  "practice.payment.complete status is 2xx",
+                                                                                      "path":  "::practice.payment.complete status is 2xx",
+                                                                                      "id":  "fc4cdde3d4248f41af13050ed197e651",
+                                                                                      "passes":  964
+                                                                                  },
+                                      "practice.reservation.get status is 2xx":  {
+                                                                                     "name":  "practice.reservation.get status is 2xx",
+                                                                                     "path":  "::practice.reservation.get status is 2xx",
+                                                                                     "id":  "c3ec6853f9dff09054adfa24bbcf214f",
+                                                                                     "passes":  964,
+                                                                                     "fails":  0
+                                                                                 },
+                                      "practice.queue.heartbeat status is 2xx":  {
+                                                                                     "passes":  2527,
+                                                                                     "fails":  0,
+                                                                                     "name":  "practice.queue.heartbeat status is 2xx",
+                                                                                     "path":  "::practice.queue.heartbeat status is 2xx",
+                                                                                     "id":  "17b2d17785fc2681ddbd5eeecd5ace06"
+                                                                                 }
+                                  },
+                       "name":  "",
+                       "path":  "",
+                       "id":  "d41d8cd98f00b204e9800998ecf8427e"
+                   },
+    "metrics":  {
+                    "seat_hold_retry_conflict":  {
+                                                     "count":  16,
+                                                     "rate":  0.08013878001173019
+                                                 },
+                    "iteration_duration":  {
+                                               "p(95)":  130341.15628,
+                                               "p(99)":  131622.137939,
+                                               "max":  131803.7405,
+                                               "avg":  103941.57867359999,
+                                               "min":  61310.5028,
+                                               "med":  107095.269,
+                                               "p(90)":  129916.59461
+                                           },
+                    "http_req_blocked":  {
+                                             "avg":  23.255457517126818,
+                                             "min":  0,
+                                             "med":  0,
+                                             "p(90)":  0,
+                                             "p(95)":  0,
+                                             "p(99)":  641.937296,
+                                             "max":  930.043
+                                         },
+                    "http_req_duration{name:practice.seats.hold}":  {
+                                                                        "med":  761.6613,
+                                                                        "p(90)":  1434.0879200000004,
+                                                                        "p(95)":  1778.3734149999993,
+                                                                        "p(99)":  2077.053361,
+                                                                        "max":  2230.6829,
+                                                                        "avg":  831.0541035714275,
+                                                                        "min":  10.3445,
+                                                                        "thresholds":  {
+                                                                                           "p(95)\u003c1500":  true,
+                                                                                           "p(99)\u003c3000":  false
+                                                                                       }
+                                                                    },
+                    "http_req_waiting":  {
+                                             "min":  0,
+                                             "med":  856.9277,
+                                             "p(90)":  1614.8196,
+                                             "p(95)":  1802.66832,
+                                             "p(99)":  2031.947892,
+                                             "max":  2398.1613,
+                                             "avg":  902.9107479925324
+                                         },
+                    "checks":  {
+                                   "passes":  22069,
+                                   "fails":  36,
+                                   "value":  0.9983714091834427
+                               },
+                    "data_sent":  {
+                                      "count":  5596388,
+                                      "rate":  28030.48167451792
+                                  },
+                    "http_req_failed":  {
+                                            "fails":  24049,
+                                            "passes":  36,
+                                            "thresholds":  {
+                                                               "rate\u003c0.02":  false
+                                                           },
+                                            "value":  0.0014947062487025119
+                                        },
+                    "http_reqs":  {
+                                      "rate":  120.6339072864076,
+                                      "count":  24085
+                                  },
+                    "http_req_sending":  {
+                                             "min":  0,
+                                             "med":  0,
+                                             "p(90)":  0,
+                                             "p(95)":  0,
+                                             "p(99)":  0.7171879999999997,
+                                             "max":  87.3977,
+                                             "avg":  0.11172041519618027
+                                         },
+                    "http_req_tls_handshaking":  {
+                                                     "p(99)":  520.0480879999999,
+                                                     "max":  746.3349,
+                                                     "avg":  19.12924215071621,
+                                                     "min":  0,
+                                                     "med":  0,
+                                                     "p(90)":  0,
+                                                     "p(95)":  0
+                                                 },
+                    "iterations":  {
+                                       "count":  1000,
+                                       "rate":  5.008673750733137
+                                   },
+                    "http_req_duration{name:practice.payment.complete}":  {
+                                                                              "max":  2196.8921,
+                                                                              "avg":  725.4544762448139,
+                                                                              "min":  7.7678,
+                                                                              "med":  703.10605,
+                                                                              "p(90)":  1211.98745,
+                                                                              "p(95)":  1322.1710249999999,
+                                                                              "p(99)":  1629.710788,
+                                                                              "thresholds":  {
+                                                                                                 "p(95)\u003c1500":  false,
+                                                                                                 "p(99)\u003c3000":  false
+                                                                                             }
+                                                                          },
+                    "http_req_duration{name:practice.queue.join}":  {
+                                                                        "p(95)":  2048.678965,
+                                                                        "p(99)":  2146.2024930000002,
+                                                                        "max":  2204.8056,
+                                                                        "avg":  1416.3436182999994,
+                                                                        "min":  10.4052,
+                                                                        "med":  1364.8456,
+                                                                        "p(90)":  1980.64038,
+                                                                        "thresholds":  {
+                                                                                           "p(95)\u003c1000":  true,
+                                                                                           "p(99)\u003c2000":  true
+                                                                                       }
+                                                                    },
+                    "vus_max":  {
+                                    "min":  905,
+                                    "max":  1000,
+                                    "value":  1000
+                                },
+                    "data_received":  {
+                                          "rate":  1100099.8785643042,
+                                          "count":  219638957
+                                      },
+                    "reservation_confirmed":  {
+                                                  "count":  964,
+                                                  "rate":  4.828361495706744
+                                              },
+                    "vus":  {
+                                "max":  1000,
+                                "value":  42,
+                                "min":  0
+                            },
+                    "http_req_duration{expected_response:true}":  {
+                                                                      "avg":  910.8459770052848,
+                                                                      "min":  6.2881,
+                                                                      "med":  866.0271,
+                                                                      "p(90)":  1618.97528,
+                                                                      "p(95)":  1805.7870999999989,
+                                                                      "p(99)":  2034.238392,
+                                                                      "max":  2499.5955
+                                                                  },
+                    "http_req_receiving":  {
+                                               "avg":  6.622447191197852,
+                                               "min":  0,
+                                               "med":  0,
+                                               "p(90)":  1.2243800000000007,
+                                               "p(95)":  15.659179999999962,
+                                               "p(99)":  196.3204999999998,
+                                               "max":  771.6788
+                                           },
+                    "http_req_duration":  {
+                                              "min":  0,
+                                              "med":  864.5311,
+                                              "p(90)":  1618.4370200000003,
+                                              "p(95)":  1805.2597799999999,
+                                              "p(99)":  2034.229536,
+                                              "max":  2499.5955,
+                                              "avg":  909.6449155989243
+                                          },
+                    "http_req_duration{name:practice.seats}":  {
+                                                                   "p(99)":  1990.6875580000012,
+                                                                   "max":  2499.5955,
+                                                                   "avg":  911.3984223469406,
+                                                                   "min":  41.4889,
+                                                                   "med":  875.2083,
+                                                                   "p(90)":  1457.4143000000001,
+                                                                   "p(95)":  1575.368315,
+                                                                   "thresholds":  {
+                                                                                      "p(95)\u003c1500":  true,
+                                                                                      "p(99)\u003c3000":  false
+                                                                                  }
+                                                               },
+                    "http_req_duration{name:practice.reservation.create}":  {
+                                                                                "p(99)":  1975.935367,
+                                                                                "max":  2162.6413,
+                                                                                "avg":  818.153243568466,
+                                                                                "min":  9.3111,
+                                                                                "med":  748.6051,
+                                                                                "p(90)":  1369.2108900000003,
+                                                                                "p(95)":  1588.2224849999998,
+                                                                                "thresholds":  {
+                                                                                                   "p(95)\u003c1500":  true,
+                                                                                                   "p(99)\u003c3000":  false
+                                                                                               }
+                                                                            },
+                    "http_req_duration{name:practice.queue.enter}":  {
+                                                                         "max":  2079.5703,
+                                                                         "avg":  841.8097851966877,
+                                                                         "min":  14.4743,
+                                                                         "med":  804.7077999999999,
+                                                                         "p(90)":  1610.51,
+                                                                         "p(95)":  1758.781,
+                                                                         "p(99)":  1889.8266650000003,
+                                                                         "thresholds":  {
+                                                                                            "p(95)\u003c1000":  true,
+                                                                                            "p(99)\u003c2000":  false
+                                                                                        }
+                                                                     },
+                    "http_req_connecting":  {
+                                                "min":  0,
+                                                "med":  0,
+                                                "p(90)":  0,
+                                                "p(95)":  0,
+                                                "p(99)":  111.469556,
+                                                "max":  168.6468,
+                                                "avg":  4.0326682665559455
+                                            },
+                    "practice_reservation_flow_duration_ms":  {
+                                                                  "avg":  45309.89211618257,
+                                                                  "min":  6562,
+                                                                  "med":  47503,
+                                                                  "p(90)":  69749.7,
+                                                                  "p(95)":  70113.4,
+                                                                  "p(99)":  71435.74,
+                                                                  "max":  71533
+                                                              }
+                },
+    "setup_data":  {
+                       "practiceSessionId":  "c78c9d0b-68fd-46cd-94bb-c48e64fcac4b",
+                       "runId":  "367d58ac",
+                       "seatLayoutId":  1,
+                       "openAtMillis":  1782218604841
+                   }
+}
