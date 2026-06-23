@@ -80,17 +80,28 @@ class ReservationFacadeTest {
     }
 
     /**
-     * 이미 생성된 예매는 Redis TTL을 연장하지 않고 즉시 거부합니다.
+     * DB 예매 생성 중 중복 예매 오류가 발생하면 예외를 그대로 전파합니다.
      */
     @Test
-    void rejectExistingReservationBeforeExtendingHold() {
-        when(reservationRepository.existsByHoldId("hold-1")).thenReturn(true);
+    void propagateExceptionWhenReservationServiceThrowsDuplicateError() {
+        EntryTokenClaims claims = claims();
+        SeatHold hold = hold();
+        when(seatHoldService.extendForReservation(
+                eq("hold-1"),
+                eq(claims),
+                eq(Duration.ofMinutes(10)),
+                any(Instant.class)
+        )).thenReturn(hold);
+        when(reservationService.create(
+                eq(hold),
+                eq(10L),
+                any(LocalDateTime.class)
+        )).thenThrow(new CustomException(ErrorCode.RESERVATION_ALREADY_EXISTS));
 
-        assertThatThrownBy(() -> facade.create("hold-1", claims()))
+        assertThatThrownBy(() -> facade.create("hold-1", claims))
                 .isInstanceOf(CustomException.class)
                 .extracting(exception -> ((CustomException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.RESERVATION_ALREADY_EXISTS);
-        verifyNoInteractions(seatHoldService, reservationService);
     }
 
     private EntryTokenClaims claims() {

@@ -103,10 +103,18 @@ class ReservationServiceTest {
      */
     @Test
     void rejectDuplicateReservationForSameHold() {
-        when(reservationRepository.existsByHoldId("hold-1")).thenReturn(true);
+        ConcertSchedule schedule = schedule(1L);
+        List<Seat> seats = List.of(seat(101L, schedule, new BigDecimal("150000")));
+        SeatHold hold = hold(List.of(101L));
+        User user = mock(User.class);
+
+        when(seatRepository.findAllByIdIn(List.of(101L))).thenReturn(seats);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(reservationRepository.saveAndFlush(any(Reservation.class)))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("Duplicate key"));
 
         assertThatThrownBy(() -> service.create(
-                hold(List.of(101L)),
+                hold,
                 10L,
                 LocalDateTime.now().plusMinutes(10)
         ))
