@@ -24,7 +24,7 @@ public class SeatHoldRedisRepository {
 
     private static final DefaultRedisScript<List> HOLD_SEATS_SCRIPT;
     private static final DefaultRedisScript<Long> RELEASE_HOLD_SCRIPT;
-    private static final DefaultRedisScript<Long> EXTEND_HOLD_SCRIPT;
+    private static final DefaultRedisScript<List> EXTEND_HOLD_SCRIPT;
     private static final DefaultRedisScript<List> FIND_HELD_SEATS_SCRIPT;
 
     static {
@@ -38,7 +38,7 @@ public class SeatHoldRedisRepository {
 
         EXTEND_HOLD_SCRIPT = new DefaultRedisScript<>();
         EXTEND_HOLD_SCRIPT.setLocation(new ClassPathResource("scripts/extend_hold.lua"));
-        EXTEND_HOLD_SCRIPT.setResultType(Long.class);
+        EXTEND_HOLD_SCRIPT.setResultType(List.class);
 
         FIND_HELD_SEATS_SCRIPT = new DefaultRedisScript<>();
         FIND_HELD_SEATS_SCRIPT.setLocation(new ClassPathResource("scripts/find_held_seats.lua"));
@@ -127,39 +127,70 @@ public class SeatHoldRedisRepository {
     }
 
     /**
-     * 예매 결제 만료 시각까지 좌석 선점의 유효 시간을 연장합니다.
+     * 예매 결제 만료 시각까지 좌석 선점의 유효 시간을 연장하고, 성공 시 연장된 선점 정보를 반환합니다.
      */
-    public boolean extendForReservation(
-            SeatHold hold,
+    public SeatHold extendForReservation(
+            String holdId,
+            Long userId,
+            Long scheduleId,
+            String entryTokenId,
+            String practiceSessionId,
             long ttlMillis,
             Instant expiresAt
     ) {
-        List<String> keys = holdKeys(hold);
+        String holdKey = SeatHoldKey.hold(holdId, practiceSessionId);
 
         List<String> arguments = new ArrayList<>();
-        arguments.add(hold.holdId());
-        arguments.add(hold.userId().toString());
-        arguments.add(hold.scheduleId().toString());
-        arguments.add(hold.entryTokenId());
+        arguments.add(holdId);
+        arguments.add(userId.toString());
+        arguments.add(scheduleId.toString());
+        arguments.add(entryTokenId);
         arguments.add(Long.toString(ttlMillis));
         arguments.add(Long.toString(expiresAt.toEpochMilli()));
-        arguments.add(Integer.toString(hold.seatIds().size()));
-        hold.seatIds().forEach(seatId -> arguments.add(seatId.toString()));
+        arguments.add(nullToBlank(practiceSessionId));
 
-        Long result = businessMetrics.record(
+        String mode = practiceSessionId == null ? "real" : "practice";
+
+        @SuppressWarnings("unchecked")
+        List<Object> result = businessMetrics.record(
                 "reservation.hold.extend.redis",
-                mode(hold),
+                mode,
                 () -> redisTemplate.execute(
                         EXTEND_HOLD_SCRIPT,
-                        keys,
+                        List.of(holdKey),
                         arguments.toArray()
                 )
         );
 
-        if (result == null) {
+        if (result == null || result.isEmpty()) {
             throw new IllegalStateException("seat hold extension result is unavailable.");
         }
-        return result == 1;
+
+        long status = toLong(result.getFirst());
+        if (status == 0) {
+            return null;
+        } else if (status == -1) {
+            throw new com.seatrush.ticketservice.common.exception.CustomException(
+                    com.seatrush.ticketservice.common.response.status.ErrorCode.SEAT_HOLD_ACCESS_DENIED
+            );
+        }
+
+        String seatIdsStr = result.get(1).toString();
+        String sectionIdsStr = result.size() > 2 ? result.get(2).toString() : "";
+
+        List<Long> seatIds = parseSeatIds(seatIdsStr);
+        Map<Long, Long> seatSectionIds = parseSeatSectionIds(seatIdsStr, sectionIdsStr);
+
+        return new SeatHold(
+                holdId,
+                scheduleId,
+                userId,
+                entryTokenId,
+                practiceSessionId,
+                seatIds,
+                seatSectionIds,
+                expiresAt
+        );
     }
 
     /**

@@ -142,13 +142,17 @@ class SeatHoldRedisRepositoryIntegrationTest {
         SeatHold hold = hold(holdId, List.of(FIRST_SEAT_ID));
         assertThat(repository.hold(hold, 5_000).success()).isTrue();
 
-        boolean extended = repository.extendForReservation(
-                hold,
+        SeatHold extendedHold = repository.extendForReservation(
+                hold.holdId(),
+                hold.userId(),
+                hold.scheduleId(),
+                hold.entryTokenId(),
+                hold.practiceSessionId(),
                 60_000,
                 Instant.now().plusSeconds(60)
         );
 
-        assertThat(extended).isTrue();
+        assertThat(extendedHold).isNotNull();
         assertThat(redisTemplate.opsForHash()
                 .hasKey(SeatHoldKey.hold(holdId), "reservationId"))
                 .isFalse();

@@ -35,8 +35,11 @@
 - [대기열 TTL 및 polling 최적화 후 사용자 100명](./2026-06-22-k6-queue-open-100-users-after-ttl-optimization/README.md)
 - [분산 좌석 선점 사용자 100명 기준선](./2026-06-22-k6-seat-hold-distributed-100-users/README.md)
 - [연습 좌석 검증 조회 제거 후 분산 좌석 선점 사용자 100명](./2026-06-23-k6-seat-hold-layout-validation-100-users/README.md)
+- [실제 예매 생성 사용자 100명 기준선](./2026-06-23-k6-reservation-create-100-users/README.md)
+
 
 ## 개선 문서
 
 - [좌석 조회 및 대기열 경로 성능 개선](../performance-improvements/2026-06-seat-query-optimization.md)
 - [대기열 polling 및 TTL 갱신 최적화](../performance-improvements/2026-06-queue-polling-ttl-optimization.md)
+- [예매 생성 내 좌석 선점 TTL 연장 최적화](../performance-improvements/2026-06-reservation-hold-extend-optimization.md)
