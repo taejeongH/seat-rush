@@ -43,3 +43,4 @@
 - [좌석 조회 및 대기열 경로 성능 개선](../performance-improvements/2026-06-seat-query-optimization.md)
 - [대기열 polling 및 TTL 갱신 최적화](../performance-improvements/2026-06-queue-polling-ttl-optimization.md)
 - [예매 생성 내 좌석 선점 TTL 연장 최적화](../performance-improvements/2026-06-reservation-hold-extend-optimization.md)
+- [예매 생성 내 중복 예매 검증 제거 최적화](../performance-improvements/2026-06-reservation-duplicate-check-optimization.md)
