@@ -99,10 +99,7 @@ public class SeatLayoutQueryService {
         }
 
         boolean invalidSeat = seats.stream().anyMatch(seat ->
-                !sectionRepository.existsByIdAndLayoutId(
-                        seat.getSection().getId(),
-                        seatLayoutId
-                )
+                !seat.getSection().getLayout().getId().equals(seatLayoutId)
         );
         if (invalidSeat) {
             throw new CustomException(ErrorCode.SEAT_NOT_AVAILABLE);

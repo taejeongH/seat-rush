@@ -8,6 +8,4 @@ import java.util.List;
 public interface SeatLayoutSectionRepository extends JpaRepository<SeatLayoutSection, Long> {
 
     List<SeatLayoutSection> findAllByLayoutIdOrderBySortOrderAsc(Long layoutId);
-
-    boolean existsByIdAndLayoutId(Long id, Long layoutId);
 }
