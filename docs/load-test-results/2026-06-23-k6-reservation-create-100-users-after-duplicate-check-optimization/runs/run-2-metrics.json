@@ -1,0 +1,233 @@
+﻿{
+    "summaryPath":  ".\\docs\\load-test-results\\2026-06-23-k6-reservation-create-100-users-after-duplicate-check-optimization\\runs\\run-2-summary.json",
+    "openAtMillis":  1782209254558,
+    "windowSeconds":  60,
+    "endTimeSeconds":  1782209304,
+    "endOffsetSeconds":  50,
+    "results":  [
+                    {
+                        "name":  "reservationFacadeP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"real\",operation=\"reservation.create.facade\",result=\"success\"}[60s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782209304,
+                                                         "0.4473924259999999"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "reservationCreateP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"real\",operation=\"reservation.create\",result=\"success\"}[60s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782209304,
+                                                         "0.1416742673333333"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "entryTokenValidationP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"real\",operation=\"entry_token.validate\",result=\"success\"}[60s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782209304,
+                                                         "0.02656392474999997"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "duplicatePrecheckP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"real\",operation=\"reservation.create.duplicate.precheck\",result=\"success\"}[60s])))",
+                        "result":  [
+
+                                   ]
+                    },
+                    {
+                        "name":  "duplicateTransactionCheckP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"real\",operation=\"reservation.create.duplicate.transaction.check\",result=\"success\"}[60s])))",
+                        "result":  [
+
+                                   ]
+                    },
+                    {
+                        "name":  "holdExtendP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"real\",operation=\"reservation.hold.extend\",result=\"success\"}[60s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782209304,
+                                                         "0.2658037355294118"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "holdExtendRedisP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"real\",operation=\"reservation.hold.extend.redis\",result=\"success\"}[60s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782209304,
+                                                         "0.2658037355294118"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "reservationSeatsLoadP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"real\",operation=\"reservation.create.seats.load\",result=\"success\"}[60s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782209304,
+                                                         "0.053127848499999984"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "reservationUserLoadP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"real\",operation=\"reservation.create.user.load\",result=\"success\"}[60s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782209304,
+                                                         "0.033554430999999926"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "reservationPersistP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"real\",operation=\"reservation.create.persist\",result=\"success\"}[60s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782209304,
+                                                         "0.053127848499999984"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "gatewayReservationCreateP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_gateway_duration_seconds_bucket{mode=\"real\",operation=\"reservation.create\",status=~\"2..\"}[60s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782209304,
+                                                         "0.78293674475"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "lettuceLuaP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(lettuce_command_completion_seconds_bucket{application=\"ticket-service\",command=~\"EVAL|EVALSHA\"}[60s])))",
+                        "result":  [
+
+                                   ]
+                    },
+                    {
+                        "name":  "lettuceLuaCount",
+                        "query":  "sum(increase(lettuce_command_completion_seconds_count{application=\"ticket-service\",command=~\"EVAL|EVALSHA\"}[60s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782209304,
+                                                         "203.38983050847457"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "hikariPendingMax",
+                        "query":  "max_over_time(hikaricp_connections_pending{application=\"ticket-service\"}[60s])",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "application":  "ticket-service",
+                                                          "instance":  "ticket-service:8081",
+                                                          "job":  "spring-applications",
+                                                          "pool":  "HikariPool-1",
+                                                          "service":  "ticket-service"
+                                                      },
+                                           "value":  [
+                                                         1782209304,
+                                                         "10"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "hikariActiveMax",
+                        "query":  "max_over_time(hikaricp_connections_active{application=\"ticket-service\"}[60s])",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "application":  "ticket-service",
+                                                          "instance":  "ticket-service:8081",
+                                                          "job":  "spring-applications",
+                                                          "pool":  "HikariPool-1",
+                                                          "service":  "ticket-service"
+                                                      },
+                                           "value":  [
+                                                         1782209304,
+                                                         "10"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "hikariAcquireAverageSeconds",
+                        "query":  "sum(increase(hikaricp_connections_acquire_seconds_sum{application=\"ticket-service\"}[60s])) / sum(increase(hikaricp_connections_acquire_seconds_count{application=\"ticket-service\"}[60s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782209304,
+                                                         "0.04465217172680412"
+                                                     ]
+                                       }
+                                   ]
+                    }
+                ]
+}
