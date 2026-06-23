@@ -76,14 +76,27 @@ public class ReservationService {
             LocalDateTime expiresAt
     ) {
         return businessMetrics.record("reservation.create", mode(hold), () -> {
-            if (reservationRepository.existsByHoldId(hold.holdId())) {
+            boolean reservationExists = businessMetrics.record(
+                    "reservation.create.duplicate.transaction.check",
+                    mode(hold),
+                    () -> reservationRepository.existsByHoldId(hold.holdId())
+            );
+            if (reservationExists) {
                 throw new CustomException(ErrorCode.RESERVATION_ALREADY_EXISTS);
             }
 
             // 1. 선점된 좌석 정보 조회 및 가용 여부 확인
-            List<Seat> seats = findReservationSeats(hold);
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+            List<Seat> seats = businessMetrics.record(
+                    "reservation.create.seats.load",
+                    mode(hold),
+                    () -> findReservationSeats(hold)
+            );
+            User user = businessMetrics.record(
+                    "reservation.create.user.load",
+                    mode(hold),
+                    () -> userRepository.findById(userId)
+                            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND))
+            );
 
             // 2. 예매 엔티티 생성
             Reservation reservation = Reservation.create(
@@ -97,13 +110,16 @@ public class ReservationService {
 
             try {
                 // DB에 영속화 및 제약조건 위반 즉시 감지를 위해 Flush 수행
-                reservationRepository.saveAndFlush(reservation);
+                businessMetrics.record(
+                        "reservation.create.persist",
+                        mode(hold),
+                        () -> reservationRepository.saveAndFlush(reservation)
+                );
             } catch (DataIntegrityViolationException exception) {
                 throw new CustomException(ErrorCode.RESERVATION_ALREADY_EXISTS);
             }
 
             return ReservationResponseDto.from(reservation);
-
         });
     }
 

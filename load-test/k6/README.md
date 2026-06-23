@@ -140,3 +140,23 @@ k6 run --insecure-skip-tls-verify .\load-test\k6\scripts\practice-reservation-fl
 - `user_abandoned`: 중도 이탈 수
 
 기준선 테스트에서는 `payment_failed`와 `user_abandoned`가 0이어야 합니다.
+
+## 실제 예매 생성 성능 테스트
+
+실제 DB 트랜잭션 기반 `POST /api/reservations`만 측정합니다. 각 사용자는 실제 회차에 대해 대기열 진입, entryToken 발급, 서로 다른 좌석 선점을 먼저 완료한 뒤 같은 시각에 예매 생성을 요청합니다.
+
+`SCHEDULE_ID`는 예매가 열려 있고 충분한 실제 좌석을 가진 성능 테스트 전용 회차여야 합니다. 각 실행은 새로운 PENDING_PAYMENT 예매를 남기므로, 3회 측정 시 `SEAT_START_ID`를 서로 다른 좌석 범위로 변경합니다.
+
+```powershell
+$env:BASE_URL="https://<gateway-domain>"
+$env:SCHEDULE_ID="<actual-schedule-id>"
+$env:SEAT_START_ID="<first-available-seat-id>"
+$env:USERS="100"
+$env:COUNTDOWN_SECONDS="5"
+$env:RESERVATION_START_DELAY_SECONDS="30"
+$env:SEATS_PER_REQUEST="1"
+
+k6 run .\load-test\k6\scripts\reservation-create.js
+```
+
+`RESERVATION_SCENARIO=DUPLICATE`를 지정하면 정상 생성 뒤 동일 holdId 요청을 한 번 더 전송해 중복 예매 거부 경로를 검증합니다.

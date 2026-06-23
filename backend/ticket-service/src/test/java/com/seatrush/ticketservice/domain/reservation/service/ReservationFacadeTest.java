@@ -42,7 +42,10 @@ class ReservationFacadeTest {
                 reservationRepository,
                 seatHoldService,
                 reservationService,
-                new ReservationProperties(Duration.ofMinutes(10), 100)
+                new ReservationProperties(Duration.ofMinutes(10), 100),
+                new com.seatrush.ticketservice.common.metrics.BusinessMetrics(
+                        new io.micrometer.core.instrument.simple.SimpleMeterRegistry()
+                )
         );
     }
 

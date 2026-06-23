@@ -146,10 +146,14 @@ public class SeatHoldRedisRepository {
         arguments.add(Integer.toString(hold.seatIds().size()));
         hold.seatIds().forEach(seatId -> arguments.add(seatId.toString()));
 
-        Long result = redisTemplate.execute(
-                EXTEND_HOLD_SCRIPT,
-                keys,
-                arguments.toArray()
+        Long result = businessMetrics.record(
+                "reservation.hold.extend.redis",
+                mode(hold),
+                () -> redisTemplate.execute(
+                        EXTEND_HOLD_SCRIPT,
+                        keys,
+                        arguments.toArray()
+                )
         );
 
         if (result == null) {
