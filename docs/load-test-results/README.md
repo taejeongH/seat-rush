@@ -34,6 +34,7 @@
 - [대기열 전용 입장 경로 세부 계측 사용자 100명](./2026-06-22-k6-queue-open-100-users/README.md)
 - [대기열 TTL 및 polling 최적화 후 사용자 100명](./2026-06-22-k6-queue-open-100-users-after-ttl-optimization/README.md)
 - [분산 좌석 선점 사용자 100명 기준선](./2026-06-22-k6-seat-hold-distributed-100-users/README.md)
+- [연습 좌석 검증 조회 제거 후 분산 좌석 선점 사용자 100명](./2026-06-23-k6-seat-hold-layout-validation-100-users/README.md)
 
 ## 개선 문서
 
