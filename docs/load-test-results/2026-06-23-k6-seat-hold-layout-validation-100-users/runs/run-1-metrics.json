@@ -1,0 +1,159 @@
+﻿{
+    "summaryPath":  "docs/load-test-results/2026-06-23-k6-seat-hold-layout-validation-100-users/runs/run-1-summary.json",
+    "practiceSessionId":  "ba08499f-d90f-4619-97cb-ef2a2dd89136",
+    "openAtMillis":  1782177729810,
+    "windowSeconds":  60,
+    "endTimeSeconds":  1782177789,
+    "endOffsetSeconds":  60,
+    "results":  [
+                    {
+                        "name":  "seatHoldP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",operation=\"seat.hold\",result=\"success\"}[60s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782177789,
+                                                         "0.15129194457169265"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "seatHoldConflictP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",operation=\"seat.hold\",result=\"failure\"}[60s])))",
+                        "result":  [
+
+                                   ]
+                    },
+                    {
+                        "name":  "entryTokenValidationP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",operation=\"entry_token.validate\",result=\"success\"}[60s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782177789,
+                                                         "0.017709283499999996"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "seatValidationP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",operation=\"seat.hold.seat.validate\",result=\"success\"}[60s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782177789,
+                                                         "0.08628282485714285"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "seatHoldRedisP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_business_duration_seconds_bucket{mode=\"practice\",operation=\"seat.hold.redis\",result=\"success\"}[60s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782177789,
+                                                         "0.1042020026792317"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "gatewaySeatHoldSuccessP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_gateway_duration_seconds_bucket{mode=\"all\",operation=\"seat.hold\",status=~\"2..\"}[60s])))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782177789,
+                                                         "0.4623055068333332"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "gatewaySeatHoldConflictP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(seat_rush_gateway_duration_seconds_bucket{mode=\"all\",operation=\"seat.hold\",status=~\"4..\"}[60s])))",
+                        "result":  [
+
+                                   ]
+                    },
+                    {
+                        "name":  "lettuceLuaP95",
+                        "query":  "histogram_quantile(0.95, sum by (le) (increase(lettuce_command_completion_seconds_bucket{application=\"ticket-service\",command=~\"EVAL|EVALSHA\"}[60s])))",
+                        "result":  [
+
+                                   ]
+                    },
+                    {
+                        "name":  "lettuceLuaCount",
+                        "query":  "sum(increase(lettuce_command_completion_seconds_count{application=\"ticket-service\",command=~\"EVAL|EVALSHA\"}[60s]))",
+                        "result":  [
+                                       {
+                                           "metric":  {
+
+                                                      },
+                                           "value":  [
+                                                         1782177789,
+                                                         "101.69491525423729"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "hikariPendingMax",
+                        "query":  "max_over_time(hikaricp_connections_pending{application=\"ticket-service\"}[60s])",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "application":  "ticket-service",
+                                                          "instance":  "ticket-service:8081",
+                                                          "job":  "spring-applications",
+                                                          "pool":  "HikariPool-1",
+                                                          "service":  "ticket-service"
+                                                      },
+                                           "value":  [
+                                                         1782177789,
+                                                         "0"
+                                                     ]
+                                       }
+                                   ]
+                    },
+                    {
+                        "name":  "hikariActiveMax",
+                        "query":  "max_over_time(hikaricp_connections_active{application=\"ticket-service\"}[60s])",
+                        "result":  [
+                                       {
+                                           "metric":  {
+                                                          "application":  "ticket-service",
+                                                          "instance":  "ticket-service:8081",
+                                                          "job":  "spring-applications",
+                                                          "pool":  "HikariPool-1",
+                                                          "service":  "ticket-service"
+                                                      },
+                                           "value":  [
+                                                         1782177789,
+                                                         "7"
+                                                     ]
+                                       }
+                                   ]
+                    }
+                ]
+}
