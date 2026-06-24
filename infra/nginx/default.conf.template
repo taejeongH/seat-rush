@@ -9,8 +9,8 @@ upstream frontend_server {
 }
 
 server {
-    listen 80;
-    listen [::]:80;
+    listen 80 backlog=65535;
+    listen [::]:80 backlog=65535;
     server_name ${DOMAIN};
 
     location /.well-known/acme-challenge/ {
@@ -23,8 +23,8 @@ server {
 }
 
 server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
+    listen 443 ssl backlog=65535;
+    listen [::]:443 ssl backlog=65535;
     http2 on;
     server_name ${DOMAIN};
 
