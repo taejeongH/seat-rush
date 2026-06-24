@@ -1,11 +1,11 @@
 upstream api_gateway {
     server api-gateway:8080;
-    keepalive 64;
+    keepalive 1024;
 }
 
 upstream frontend_server {
     server frontend:80;
-    keepalive 32;
+    keepalive 512;
 }
 
 server {
