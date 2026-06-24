@@ -15,6 +15,9 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     mem_limit: 128m
+    sysctls:
+      net.core.somaxconn: 65535
+      net.ipv4.tcp_max_syn_backlog: 65535
     environment:
       DOMAIN: ${DOMAIN}
       NGINX_ENVSUBST_FILTER: ^DOMAIN$
@@ -91,6 +94,9 @@ services:
     <<: *spring-service
     image: ${GHCR_NAMESPACE:-ghcr.io/taejeongh}/seat-rush-api-gateway:${IMAGE_TAG:-latest}
     mem_limit: 384m
+    sysctls:
+      net.core.somaxconn: 65535
+      net.ipv4.tcp_max_syn_backlog: 65535
     environment:
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=30
       FRONTEND_URL: https://${DOMAIN}
@@ -147,6 +153,9 @@ services:
     <<: *spring-service
     image: ${GHCR_NAMESPACE:-ghcr.io/taejeongh}/seat-rush-queue-service:${IMAGE_TAG:-latest}
     mem_limit: 512m
+    sysctls:
+      net.core.somaxconn: 65535
+      net.ipv4.tcp_max_syn_backlog: 65535
     environment:
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=30
       QUEUE_REDIS_HOST: queue-redis
