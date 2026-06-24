@@ -3,6 +3,13 @@ spring:
     name: api-gateway
   cloud:
     gateway:
+      httpclient:
+        pool:
+          type: fixed
+          max-connections: 1000
+          acquire-timeout: 45000
+        connect-timeout: 10000
+        response-timeout: 30s
       server:
         webflux:
           globalcors:
