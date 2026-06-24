@@ -24,6 +24,7 @@
 ## 결과
 
 - [100명·500명·1,000명 예매 연습 단계별 측정 결과](./2026-06-20-k6-100-500-1000.md)
+- [최적화 후 100명·500명·1,000명 예매 연습 단계별 측정 결과](./2026-06-23-k6-100-500-1000-after-all-optimizations.md)
 - [좌석 조회 개선 후 100명 사용자 결과](./2026-06-20-k6-after-seat-query-100-users/README.md)
 - [좌석 조회 응답 경로 기준선 100명](./2026-06-20-k6-seat-query-path-baseline-100-users/README.md)
 - [응답 버퍼링 제거 후 좌석 조회 사용자 100명](./2026-06-21-k6-response-buffer-removed-100-users/README.md)
@@ -37,6 +38,7 @@
 - [연습 좌석 검증 조회 제거 후 분산 좌석 선점 사용자 100명](./2026-06-23-k6-seat-hold-layout-validation-100-users/README.md)
 - [실제 예매 생성 사용자 100명 기준선](./2026-06-23-k6-reservation-create-100-users/README.md)
 - [좌석 선점 연장 최적화 후 실제 예매 생성 사용자 100명](./2026-06-23-k6-reservation-create-100-users-after-hold-extend-optimization/README.md)
+- [중복 예매 검증 제거 후 실제 예매 생성 사용자 100명](./2026-06-23-k6-reservation-create-100-users-after-duplicate-check-optimization/README.md)
 
 ## 개선 문서
 
