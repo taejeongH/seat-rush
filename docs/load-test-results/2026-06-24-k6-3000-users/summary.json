@@ -1,22 +1,22 @@
 {
   "metrics": {
     "http_req_duration{name:practice.queue.join}": {
-      "p(95)": 20970.0
+      "p(95)": 9270.0
     },
     "http_req_duration{name:practice.queue.enter}": {
-      "p(95)": 2170.0
+      "p(95)": 2760.0
     },
     "http_req_duration{name:practice.seats}": {
-      "p(95)": 3090.0
+      "p(95)": 4470.0
     },
     "http_req_duration{name:practice.seats.hold}": {
-      "p(95)": 2230.0
+      "p(95)": 3070.0
     },
     "http_req_duration{name:practice.reservation.create}": {
-      "p(95)": 2230.0
+      "p(95)": 2540.0
     },
     "http_req_duration{name:practice.payment.complete}": {
-      "p(95)": 2320.0
+      "p(95)": 2210.0
     }
   }
 }
